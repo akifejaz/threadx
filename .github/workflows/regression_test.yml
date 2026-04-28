@@ -47,6 +47,8 @@ jobs:
       issues: read
       checks: write
       pull-requests: write
+      pages: write    
+      id-token: write
     uses: ./.github/workflows/regression_template.yml
     with:
       install_script: ./scripts/install_riscv.sh
