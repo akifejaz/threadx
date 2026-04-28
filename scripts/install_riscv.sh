@@ -2,30 +2,33 @@
 # Install RISC-V bare-metal cross-compiler toolchain and QEMU for CI.
 set -e
 
-XPACK_VERSION="14.2.0-3"
-XPACK_URL="https://github.com/xpack-dev-tools/riscv-none-elf-gcc-xpack/releases/download/v${XPACK_VERSION}/xpack-riscv-none-elf-gcc-${XPACK_VERSION}-linux-x64.tar.gz"
+RELEASE_TAG="2026.04.26"
+BASE_URL="https://github.com/riscv-collab/riscv-gnu-toolchain/releases/download/${RELEASE_TAG}"
+# Use ubuntu-24.04 binaries to match ubuntu-latest runners.
+RV32_TARBALL="riscv32-glibc-ubuntu-22.04-gcc.tar.xz"
+RV64_TARBALL="riscv64-glibc-ubuntu-22.04-gcc.tar.xz"
 
 echo "=== Installing QEMU and build tools ==="
 sudo apt-get update -qq
 sudo apt-get install -y -qq qemu-system-misc ninja-build cmake
 
-echo "=== Downloading xPack RISC-V Embedded GCC ${XPACK_VERSION} ==="
-wget -q "$XPACK_URL" -O /tmp/riscv-gcc.tar.gz
+echo "=== Downloading RISC-V GCC toolchain (${RELEASE_TAG}) ==="
 sudo mkdir -p /opt/riscv
-sudo tar xzf /tmp/riscv-gcc.tar.gz -C /opt/riscv --strip-components=1
-rm /tmp/riscv-gcc.tar.gz
 
-# The xPack toolchain provides riscv-none-elf-* binaries (multilib).
-# Create symlinks matching the names our CMake toolchain files expect.
+# Both tarballs extract into riscv/ with non-overlapping prefixes
+# (riscv32-unknown-elf-* and riscv64-unknown-elf-*).
+wget -q "${BASE_URL}/${RV32_TARBALL}" -O /tmp/riscv32-gcc.tar.xz
+sudo tar xJf /tmp/riscv32-gcc.tar.xz -C /opt --strip-components=0
+rm /tmp/riscv32-gcc.tar.xz
+
+wget -q "${BASE_URL}/${RV64_TARBALL}" -O /tmp/riscv64-gcc.tar.xz
+sudo tar xJf /tmp/riscv64-gcc.tar.xz -C /opt --strip-components=0
+rm /tmp/riscv64-gcc.tar.xz
+
 TOOLCHAIN_BIN=/opt/riscv/bin
-for tool in gcc g++ ar as objcopy objdump size ld gdb; do
-    [ -f "$TOOLCHAIN_BIN/riscv-none-elf-$tool" ] || continue
-    sudo ln -sf "riscv-none-elf-$tool" "$TOOLCHAIN_BIN/riscv32-unknown-elf-$tool"
-    sudo ln -sf "riscv-none-elf-$tool" "$TOOLCHAIN_BIN/riscv64-unknown-elf-$tool"
-done
-
 echo "$TOOLCHAIN_BIN" >> "$GITHUB_PATH"
 
 echo "=== Verifying installation ==="
-"$TOOLCHAIN_BIN/riscv-none-elf-gcc" --version | head -1
+"$TOOLCHAIN_BIN/riscv32-unknown-elf-gcc" --version | head -1
+"$TOOLCHAIN_BIN/riscv64-unknown-elf-gcc" --version | head -1
 qemu-system-riscv64 --version | head -1
