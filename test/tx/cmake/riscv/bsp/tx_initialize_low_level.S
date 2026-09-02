@@ -33,12 +33,23 @@
     .extern  trap_handler
     .extern  _tx_thread_context_restore
 
-trap_entry:
+/* Trap frame sizes follow each port contract and keep 16-byte alignment. */
+#if __riscv_xlen == 64
 #if defined(__riscv_float_abi_single) || defined(__riscv_float_abi_double)
-    addi    sp, sp, -(65 * REGBYTES)
+    .equ    TX_TRAP_FRAME_SIZE, 528
 #else
-    addi    sp, sp, -(32 * REGBYTES)
+    .equ    TX_TRAP_FRAME_SIZE, 256
 #endif
+#elif defined(__riscv_float_abi_double)
+    .equ    TX_TRAP_FRAME_SIZE, 400
+#elif defined(__riscv_float_abi_single)
+#error "The ThreadX RISC-V32 port does not support the ILP32F ABI."
+#else
+    .equ    TX_TRAP_FRAME_SIZE, 128
+#endif
+
+trap_entry:
+    addi    sp, sp, -TX_TRAP_FRAME_SIZE
 
     STORE   x1, (28 * REGBYTES)(sp)
 
@@ -47,11 +58,11 @@ trap_entry:
     csrr    a0, mcause
     csrr    a1, mepc
     csrr    a2, mtval
-    addi    sp, sp, -REGBYTES
+    addi    sp, sp, -16
     STORE   ra, 0(sp)
     call    trap_handler
     LOAD    ra, 0(sp)
-    addi    sp, sp, REGBYTES
+    addi    sp, sp, 16
 
     call    _tx_thread_context_restore
 
@@ -80,7 +91,7 @@ _tx_initialize_low_level:
     csrrc   zero, mstatus, t0
     li      t0, (MSTATUS_MPP_M | MSTATUS_MPIE)
     csrrs   zero, mstatus, t0
-    li      t0, (MIE_MTIE | MIE_MSIE | MIE_MEIE)
+    li      t0, (MIE_MTIE | MIE_MEIE)    // No MSIE: software interrupts are never dispatched here
     csrrs   zero, mie, t0
 
 #ifdef __riscv_flen
@@ -89,11 +100,11 @@ _tx_initialize_low_level:
     fscsr   x0
 #endif
 
-    addi    sp, sp, -REGBYTES
+    addi    sp, sp, -16
     STORE   ra, 0(sp)
     call    board_init
     LOAD    ra, 0(sp)
-    addi    sp, sp, REGBYTES
+    addi    sp, sp, 16
 
     la      t0, trap_entry
     csrw    mtvec, t0
