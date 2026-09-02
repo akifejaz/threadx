@@ -523,17 +523,6 @@ struct uart_instance{
 
 extern uart_instance_t g_uart_0;
 
-static void default_tx_handler(uart_instance_t * this_uart);
-static void enable_irq(const uart_instance_t * this_uart);
-
-static void disable_irq(const uart_instance_t * this_uart);
-
-static void config_baud_divisors
-(
-    uart_instance_t * this_uart,
-    uint32_t baudrate    
-);
-
 /***************************************************************************//**
   The UART_init() function initializes and configures the
   UART with the configuration passed as a parameter. The configuration
@@ -958,4 +947,3 @@ UART_set_rx_handler
 
 
 #endif /*__UART_H_*/
-

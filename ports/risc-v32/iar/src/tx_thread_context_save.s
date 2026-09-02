@@ -116,7 +116,7 @@ _tx_thread_context_save:
     csrr    t0, mepc                                    ; Load exception program counter
     sw      t0, 0x78(sp)                                ; Save it on the stack
 
-#if __iar_riscv_base_isa == rv32e
+#ifdef __riscv_flen
 
     /* Save floating point scratch registers.  */
 
@@ -184,7 +184,7 @@ _tx_thread_not_nested_save:
     csrr    t0, mepc                                    ; Load exception program counter
     sw      t0, 0x78(sp)                                ; Save it on the stack
 
-#if __iar_riscv_base_isa == rv32e
+#ifdef __riscv_flen
 
     /* Save floating point scratch registers.  */
 
@@ -245,8 +245,8 @@ _tx_thread_idle_system_save:
 
     /* }
 }  */
-#if __iar_riscv_base_isa == rv32e
-    addi    sp, sp, 260                                 ; Recover stack frame - with floating point enabled
+#ifdef __riscv_flen
+    addi    sp, sp, 272                                 ; FP frame: 272 = 256 used + 16 pad (16-byte psABI align)
 #else
     addi    sp, sp, 128                                 ; Recover the reserved stack space
 #endif

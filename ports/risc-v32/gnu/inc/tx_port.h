@@ -25,7 +25,7 @@
 /*  PORT SPECIFIC C INFORMATION                            RELEASE        */
 /*                                                                        */
 /*    tx_port.h                                          RISC-V32/GNU     */
-/*                                                           6.4.x        */
+/*                                                       6.5.1.202602a    */
 /*                                                                        */
 /*  AUTHOR                                                                */
 /*                                                                        */
@@ -46,6 +46,14 @@
 
 #ifndef TX_PORT_H
 #define TX_PORT_H
+
+/* Port contract: gp (x3) and tp (x4) are not part of the thread context;
+   no context save or restore path touches them.  The port assumes one
+   global gp shared by all code, and no TLS (tp is never used).  */
+
+/* Idle power: this RV32 port executes wfi in the scheduler idle loop
+   unless TX_NO_WFI is defined.  The RV64 port executes wfi only when
+   TX_USE_WFI_IDLE is defined (default: busy-spin).  The defaults differ.  */
 
 /* Include shared RISC-V32 port definitions common to all toolchain ports.  */
 #include "../../common/tx_port_riscv32_common.h"

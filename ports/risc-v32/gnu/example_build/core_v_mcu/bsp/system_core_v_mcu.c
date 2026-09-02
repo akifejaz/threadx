@@ -66,6 +66,7 @@ void tx_timer_irq_handler(void)
 
 void system_init(void)
 {
+    int fll_frequency;
     uint32_t i;
 
     for (i = 0U; i < 32U; ++i)
@@ -80,15 +81,22 @@ void system_init(void)
         pi_fll_init((fll_type_t)i, 0U);
     }
 
+    fll_frequency = pi_fll_get_frequency(FLL_SOC, 0U);
+    if (fll_frequency <= 0)
+    {
+        tx_undefined_irq_handler();
+    }
+    system_core_clock = (uint32_t)fll_frequency;
+
     pulp_irq_init();
-    (void)timer_irq_init(ARCHI_SOC_FREQUENCY / (uint32_t)TX_TIMER_TICKS_PER_SECOND);
+    (void)timer_irq_init(ARCHI_REF_CLOCK / (uint32_t)TX_TIMER_TICKS_PER_SECOND);
     /* CV32E40P routes the FC Timer LO to irq_i[7] (MTI, bit 7), which maps
      * to mip[7].  IRQ_MASK in cv32e40p_cs_registers forces mie[10] to zero,
      * so bit 7 is the correct enable bit.  mcause will be 0x80000007. */
     (void)csr_read_set(CSR_MIE, BIT(7));
 
     gpio_init();
-    if (uart_init(0U, 115200U, ARCHI_FPGA_FREQUENCY) == 0)
+    if (uart_init(0U, 115200U, system_core_clock) == 0)
     {
         uart_console_ready = 1U;
     }

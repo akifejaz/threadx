@@ -79,8 +79,24 @@ _tx_initialize_low_level:
 
     /* Initialize floating point control/status register if floating point is enabled.  */
 #ifdef __riscv_flen
+#ifdef TX_RISCV_SMODE
+    li      t0, 0x2000                                  // Set sstatus.FS to Initial (bits 14:13 = 01) so the fcsr write cannot trap
+    csrrs   zero, sstatus, t0
+#else
+    li      t0, 0x2000                                  // Set mstatus.FS to Initial (bits 14:13 = 01) so the fcsr write cannot trap
+    csrrs   zero, mstatus, t0
+#endif
     li      t0, 0
     csrw    fcsr, t0                                    // Clear FP control/status register
+#endif
+
+#ifdef __riscv_vector
+    li      t0, 0x200                                   // Set VS=Initial before a vector restore
+#ifdef TX_RISCV_SMODE
+    csrrs   zero, sstatus, t0
+#else
+    csrrs   zero, mstatus, t0
+#endif
 #endif
 
     ret
@@ -90,16 +106,19 @@ _tx_initialize_low_level:
    The timer interrupt handler should follow this execution flow:
 
    1. Disable interrupts (if not done by hardware exception entry)
-   2. Allocate interrupt stack frame (65*8 bytes with FP, 32*8 bytes without)
+   2. Allocate the interrupt stack frame: 528 bytes with FP (65*8 data
+      plus 8 pad bytes for 16-byte alignment), 32*8 = 256 bytes without.
+      With the vector extension, allocate an additional 32*vlenb + 4*8
+      bytes below that frame.
    3. Save RA (x1) on the stack at offset 28*8
    4. Call _tx_thread_context_save to save thread context
    5. Call _tx_timer_interrupt to process the timer tick
    6. Call _tx_thread_context_restore to resume execution (does not return)
 
-   Example (for CLINT timer):
+   Example (for CLINT timer, default FP build):
 
        _tx_timer_interrupt_handler:
-           addi    sp, sp, -32*8
+           addi    sp, sp, -528
            sd      ra, 28*8(sp)
            call    _tx_thread_context_save
            call    _tx_timer_interrupt

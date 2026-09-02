@@ -61,8 +61,8 @@
     .extern  trap_handler
     .extern  _tx_thread_context_restore
     trap_entry:
-#if defined(__riscv_float_abi_single) || defined(__riscv_float_abi_double)
-	addi sp, sp, -65*4                // Allocate space for all registers - with floating point enabled
+#if defined(__riscv_float_abi_double)
+	addi sp, sp, -400                 // Allocate the FP trap frame (doubles at 128+i*8, fcsr at 384, 16-byte aligned)
 #else
 	addi sp, sp, -32*4                // Allocate space for all registers - without floating point enabled
 #endif
@@ -74,11 +74,11 @@
 	csrr a0, mcause
 	csrr a1, mepc
         csrr a2, mtval
-	addi    sp, sp, -4
+	addi    sp, sp, -16               // 16-byte temporary frame keeps the psABI stack alignment
     	sw      ra, 0(sp)
     	call    trap_handler
     	lw      ra, 0(sp)
-    	addi    sp, sp, 4
+    addi    sp, sp, 16
 	call _tx_thread_context_restore
 	// it will nerver return
 _err:
@@ -128,8 +128,7 @@ _err:
 /**************************************************************************/
 /* VOID   _tx_initialize_low_level(VOID)
 {  */
-//    .global  _tx_initialize_low_level
-    .weak    _tx_initialize_low_level
+    .global  _tx_initialize_low_level
     .extern  _end
     .extern  board_init
 _tx_initialize_low_level:
@@ -153,12 +152,12 @@ debug_str_init:
     csrrs   zero, mstatus, t0			            // set MSTATUS_MPP, MPIE bit
     li	    t0, (MIE_MTIE | MIE_MSIE | MIE_MEIE)
     csrrs   zero, mie, t0			                // set mie
-#ifdef __riscv_flen
+#if defined(__riscv_float_abi_double)
     li      t0, MSTATUS_FS
     csrrs   zero, mstatus, t0			            // set MSTATUS_FS bit to open f/d isa in riscv
     fscsr   x0
 #endif
-    addi    sp, sp, -4
+    addi    sp, sp, -16               // 16-byte temporary frame keeps the psABI stack alignment
     sw	    ra, 0(sp)
     call    board_init
 /*  debug print
@@ -166,7 +165,7 @@ debug_str_init:
     call    uart_puts
 */
     lw	    ra, 0(sp)
-    addi    sp, sp, 4
+    addi    sp, sp, 16
     la	    t0, trap_entry
     csrw    mtvec, t0
     ret

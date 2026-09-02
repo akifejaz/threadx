@@ -21,6 +21,7 @@
 /**************************************************************************/
 
     .section .text
+    .equ    TX_TRAP_FRAME_SIZE, 528                     // FP trap frame: 65*8 = 520 data + 8 pad bytes at top (16-byte aligned)
 /**************************************************************************/
 /*                                                                        */
 /*  FUNCTION                                               RELEASE        */
@@ -138,6 +139,9 @@ If vector extension support:
                     ...
                     v31     99      Initial v31
 
+    With floating point enabled, 8 pad bytes sit at the top of the frame
+    (bytes 520-527) so the 528-byte total keeps sp 16-byte aligned.
+
     Stack Bottom: (higher memory address)  */
 
     ld      t0, 24(a0)                                  // Pickup end of stack area
@@ -147,7 +151,7 @@ If vector extension support:
     /* Actually build the stack frame.  */
 
 #if defined(__riscv_float_abi_single) || defined(__riscv_float_abi_double)
-    addi    t0, t0, -65*8
+    addi    t0, t0, -TX_TRAP_FRAME_SIZE                 // Allocate space for the stack frame (65*8 data + 8 pad)
 #else
     addi    t0, t0, -32*8                               // Allocate space for the stack frame
 #endif
@@ -226,8 +230,7 @@ If vector extension support:
     sd      zero, 60*8(t0)                              // Initial ft9
     sd      zero, 61*8(t0)                              // Initial ft10
     sd      zero, 62*8(t0)                              // Initial ft11
-    csrr    a1, fcsr                                    // Read fcsr for initial value
-    sd      a1, 63*8(t0)                                // Initial fcsr
+    sd      zero, 63*8(t0)                              // Initial fcsr (0: no sticky flags, round-to-nearest)
 #endif
 
 #if defined(__riscv_vector)

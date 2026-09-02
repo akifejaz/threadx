@@ -162,7 +162,7 @@ as `0x1c000801` (base + vectored-mode bit).
 - Reference clock: 32 768 Hz (ARCHI_REF_CLOCK)
 - Tick rate: 100 Hz → compare value 327 (~0.1 % drift)
 - The timer auto-reloads on compare match (cycle mode)
-- `_tx_timer_interrupt` is registered in `isr_table[10]` during `system_init()`
+- `_tx_timer_interrupt` is registered in `isr_table[7]` during `system_init()`
 
 ### 4.4 FLL and clock
 
@@ -357,14 +357,15 @@ void irq_clint_enable(void);    /* set mstatus.MIE */
 void irq_clint_disable(void);   /* clear mstatus.MIE */
 ```
 
-`irq_id` values are defined as `IRQ_FC_EVT_*` in `irq.h`.  The timer uses
-`IRQ_FC_EVT_TIMER0_LO` (= 10).
+`irq_id` values are defined as `IRQ_FC_EVT_*` in `irq.h`. The FC timer enters
+the core as machine timer interrupt 7.
 
 ### `timer_irq.h`
 
 ```c
-void     timer_irq_init(uint32_t ticks);
-void     timer_irq_set_timeout(uint32_t ticks, bool enable);
+int      timer_irq_init(uint32_t ticks);
+int      timer_irq_set_timeout(uint32_t ticks);
+uint32_t timer_irq_clock_elapsed(void);
 uint32_t timer_irq_cycle_get_32(void);
 ```
 

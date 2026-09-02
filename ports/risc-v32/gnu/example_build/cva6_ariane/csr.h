@@ -51,7 +51,7 @@
 static inline uint32_t riscv_get_core()
 {
   uint32_t x;
-  asm volatile("csrr %0, mhartid" : "=r" (x) );
+  __asm__ volatile("csrr %0, mhartid" : "=r" (x) );
   return x;
 }
 
@@ -59,15 +59,15 @@ static inline uint64_t riscv_get_mstatus()
 {
   uint32_t x;
   uint32_t xh;
-  asm volatile("csrr %0, mstatus" : "=r" (x) );
-  asm volatile("csrr %0, mstatush" : "=r" (xh) );
-  return ((uint64_t)(x)) + ((uint64_t)(xh)) << 32;
+  __asm__ volatile("csrr %0, mstatus" : "=r" (x) );
+  __asm__ volatile("csrr %0, mstatush" : "=r" (xh) );
+  return ((uint64_t)(x)) + (((uint64_t)(xh)) << 32);
 }
 
 static inline void riscv_writ_mstatus(uint64_t x)
 {
-  asm volatile("csrw mstatus, %0" : : "r" ((uint32_t)x));
-  asm volatile("csrw mstatush, %0" : : "r" ((uint32_t)(x >> 32)));
+  __asm__ volatile("csrw mstatus, %0" : : "r" ((uint32_t)x));
+  __asm__ volatile("csrw mstatush, %0" : : "r" ((uint32_t)(x >> 32)));
 }
 
 // machine exception program counter, holds the
@@ -75,56 +75,56 @@ static inline void riscv_writ_mstatus(uint64_t x)
 // exception will go.
 static inline void riscv_writ_mepc(uint32_t x)
 {
-  asm volatile("csrw mepc, %0" : : "r" (x));
+  __asm__ volatile("csrw mepc, %0" : : "r" (x));
 }
 
 static inline uint32_t riscv_get_sstatus()
 {
   uint32_t x;
-  asm volatile("csrr %0, sstatus" : "=r" (x) );
+  __asm__ volatile("csrr %0, sstatus" : "=r" (x) );
   return x;
 }
 
 static inline void riscv_writ_sstatus(uint32_t x)
 {
-  asm volatile("csrw sstatus, %0" : : "r" (x));
+  __asm__ volatile("csrw sstatus, %0" : : "r" (x));
 }
 
 // Supervisor Interrupt Pending
 static inline uint32_t riscv_get_sip()
 {
   uint32_t x;
-  asm volatile("csrr %0, sip" : "=r" (x) );
+  __asm__ volatile("csrr %0, sip" : "=r" (x) );
   return x;
 }
 
 static inline void riscv_writ_sip(uint32_t x)
 {
-  asm volatile("csrw sip, %0" : : "r" (x));
+  __asm__ volatile("csrw sip, %0" : : "r" (x));
 }
 
 static inline uint32_t riscv_get_sie()
 {
   uint32_t x;
-  asm volatile("csrr %0, sie" : "=r" (x) );
+  __asm__ volatile("csrr %0, sie" : "=r" (x) );
   return x;
 }
 
 static inline void riscv_writ_sie(uint32_t x)
 {
-  asm volatile("csrw sie, %0" : : "r" (x));
+  __asm__ volatile("csrw sie, %0" : : "r" (x));
 }
 
 static inline uint32_t riscv_get_mie()
 {
   uint32_t x;
-  asm volatile("csrr %0, mie" : "=r" (x) );
+  __asm__ volatile("csrr %0, mie" : "=r" (x) );
   return x;
 }
 
 static inline void riscv_writ_mie(uint32_t x)
 {
-  asm volatile("csrw mie, %0" : : "r" (x));
+  __asm__ volatile("csrw mie, %0" : : "r" (x));
 }
 
 // supervisor exception program counter, holds the
@@ -132,13 +132,13 @@ static inline void riscv_writ_mie(uint32_t x)
 // exception will go.
 static inline void riscv_writ_sepc(uint32_t x)
 {
-  asm volatile("csrw sepc, %0" : : "r" (x));
+  __asm__ volatile("csrw sepc, %0" : : "r" (x));
 }
 
 static inline uint32_t riscv_get_sepc()
 {
   uint32_t x;
-  asm volatile("csrr %0, sepc" : "=r" (x) );
+  __asm__ volatile("csrr %0, sepc" : "=r" (x) );
   return x;
 }
 
@@ -146,111 +146,111 @@ static inline uint32_t riscv_get_sepc()
 static inline uint32_t riscv_get_medeleg()
 {
   uint32_t x;
-  asm volatile("csrr %0, medeleg" : "=r" (x) );
+  __asm__ volatile("csrr %0, medeleg" : "=r" (x) );
   return x;
 }
 
 static inline void riscv_writ_medeleg(uint32_t x)
 {
-  asm volatile("csrw medeleg, %0" : : "r" (x));
+  __asm__ volatile("csrw medeleg, %0" : : "r" (x));
 }
 
 // Machine Interrupt Delegation
 static inline uint32_t riscv_get_mideleg()
 {
   uint32_t x;
-  asm volatile("csrr %0, mideleg" : "=r" (x) );
+  __asm__ volatile("csrr %0, mideleg" : "=r" (x) );
   return x;
 }
 
 static inline void riscv_writ_mideleg(uint32_t x)
 {
-  asm volatile("csrw mideleg, %0" : : "r" (x));
+  __asm__ volatile("csrw mideleg, %0" : : "r" (x));
 }
 
 // Supervisor Trap-Vector Base Address
 // low two bits are mode.
 static inline void riscv_writ_stvec(uint32_t x)
 {
-  asm volatile("csrw stvec, %0" : : "r" (x));
+  __asm__ volatile("csrw stvec, %0" : : "r" (x));
 }
 
 static inline uint32_t riscv_get_stvec()
 {
   uint32_t x;
-  asm volatile("csrr %0, stvec" : "=r" (x) );
+  __asm__ volatile("csrr %0, stvec" : "=r" (x) );
   return x;
 }
 
 static inline uint32_t riscv_get_stimecmp()
 {
   uint32_t x;
-  asm volatile("csrr %0, 0x14d" : "=r" (x) );
+  __asm__ volatile("csrr %0, 0x14d" : "=r" (x) );
   return x;
 }
 
 static inline void riscv_writ_stimecmp(uint32_t x)
 {
-  asm volatile("csrw 0x14d, %0" : : "r" (x));
+  __asm__ volatile("csrw 0x14d, %0" : : "r" (x));
 }
 
 static inline uint32_t riscv_get_menvcfg()
 {
   uint32_t x;
-  asm volatile("csrr %0, 0x30a" : "=r" (x) );
+  __asm__ volatile("csrr %0, 0x30a" : "=r" (x) );
   return x;
 }
 
 static inline void riscv_writ_menvcfg(uint32_t x)
 {
-  asm volatile("csrw 0x30a, %0" : : "r" (x));
+  __asm__ volatile("csrw 0x30a, %0" : : "r" (x));
 }
 
 static inline void riscv_writ_pmpcfg0(uint32_t x)
 {
-  asm volatile("csrw pmpcfg0, %0" : : "r" (x));
+  __asm__ volatile("csrw pmpcfg0, %0" : : "r" (x));
 }
 
 static inline void riscv_writ_pmpaddr0(uint32_t x)
 {
-  asm volatile("csrw pmpaddr0, %0" : : "r" (x));
+  __asm__ volatile("csrw pmpaddr0, %0" : : "r" (x));
 }
 
 static inline void riscv_writ_satp(uint32_t x)
 {
-  asm volatile("csrw satp, %0" : : "r" (x));
+  __asm__ volatile("csrw satp, %0" : : "r" (x));
 }
 
 static inline uint32_t riscv_get_satp()
 {
   uint32_t x;
-  asm volatile("csrr %0, satp" : "=r" (x) );
+  __asm__ volatile("csrr %0, satp" : "=r" (x) );
   return x;
 }
 
 static inline uint32_t riscv_get_scause()
 {
   uint32_t x;
-  asm volatile("csrr %0, scause" : "=r" (x) );
+  __asm__ volatile("csrr %0, scause" : "=r" (x) );
   return x;
 }
 
 static inline uint32_t riscv_get_stval()
 {
   uint32_t x;
-  asm volatile("csrr %0, stval" : "=r" (x) );
+  __asm__ volatile("csrr %0, stval" : "=r" (x) );
   return x;
 }
 
 static inline void riscv_writ_mcounteren(uint32_t x)
 {
-  asm volatile("csrw mcounteren, %0" : : "r" (x));
+  __asm__ volatile("csrw mcounteren, %0" : : "r" (x));
 }
 
 static inline uint32_t riscv_get_mcounteren()
 {
   uint32_t x;
-  asm volatile("csrr %0, mcounteren" : "=r" (x) );
+  __asm__ volatile("csrr %0, mcounteren" : "=r" (x) );
   return x;
 }
 
@@ -259,9 +259,16 @@ static inline uint64_t riscv_get_time()
 {
   uint32_t x;
   uint32_t xh;
-  asm volatile("csrr %0, time" : "=r" (x) );
-  asm volatile("csrr %0, timeh" : "=r" (xh) );
-  return ((uint64_t)(x)) + ((uint64_t)(xh)) << 32;
+  uint32_t xh_check;
+
+  do
+  {
+    __asm__ volatile("csrr %0, timeh" : "=r" (xh) );
+    __asm__ volatile("csrr %0, time" : "=r" (x) );
+    __asm__ volatile("csrr %0, timeh" : "=r" (xh_check) );
+  } while (xh != xh_check);
+
+  return ((uint64_t)(x)) + (((uint64_t)(xh)) << 32);
 }
 
 static inline void riscv_sintr_on()
@@ -323,7 +330,7 @@ static inline void riscv_mintr_restore(int x)
 static inline uint32_t riscv_get_sp()
 {
   uint32_t x;
-  asm volatile("mv %0, sp" : "=r" (x) );
+  __asm__ volatile("mv %0, sp" : "=r" (x) );
   return x;
 }
 
@@ -332,19 +339,19 @@ static inline uint32_t riscv_get_sp()
 static inline uint32_t riscv_get_tp()
 {
   uint32_t x;
-  asm volatile("mv %0, tp" : "=r" (x) );
+  __asm__ volatile("mv %0, tp" : "=r" (x) );
   return x;
 }
 
 static inline void riscv_writ_tp(uint32_t x)
 {
-  asm volatile("mv tp, %0" : : "r" (x));
+  __asm__ volatile("mv tp, %0" : : "r" (x));
 }
 
 static inline uint32_t riscv_get_ra()
 {
   uint32_t x;
-  asm volatile("mv %0, ra" : "=r" (x) );
+  __asm__ volatile("mv %0, ra" : "=r" (x) );
   return x;
 }
 
@@ -352,7 +359,7 @@ static inline uint32_t riscv_get_ra()
 static inline void sfence_vma()
 {
   // the zero, zero means flush all TLB entries.
-  asm volatile("sfence.vma zero, zero");
+  __asm__ volatile("sfence.vma zero, zero");
 }
 
 #endif // __ASSEMBLER__

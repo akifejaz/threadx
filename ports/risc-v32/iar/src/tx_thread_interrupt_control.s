@@ -28,8 +28,8 @@
 /*  #include "tx_api.h"
     #include "tx_thread.h"  */
 
-RETURN_MASK     DEFINE          0x0000000F
-SET_SR_MASK     DEFINE          0xFFFFFFF0
+MSTATUS_MIE     DEFINE          0x00000008
+RETURN_MASK     DEFINE          0x00000008
 
     SECTION `.text`:CODE:REORDER:NOROOT(2)
     CODE
@@ -71,16 +71,28 @@ SET_SR_MASK     DEFINE          0xFFFFFFF0
 _tx_thread_interrupt_control:
     /* Pickup current interrupt lockout posture.  */
 
-    csrr    t0, mstatus
-    mv      t1, t0                                      ; Save original mstatus for return
+    csrr    t0, mstatus                                 ; Pickup mstatus
+    andi    t0, t0, RETURN_MASK                         ; Mask out all but MIE (bit 3)
 
-    /* Apply the new interrupt posture.  */
+    /* Apply the new interrupt posture.  One CSR instruction does the
+       read-modify-write atomically.  An interrupt between a separate read
+       and write can no longer make the write restore a stale mstatus.  */
 
-    li      t2, SET_SR_MASK                             ; Build set SR mask
-    and     t0, t0, t2                                  ; Isolate interrupt lockout bits
-    or      t0, t0, a0                                  ; Put new lockout bits in
-    csrw    mstatus, t0
-    andi    a0, t1, RETURN_MASK                         ; Return original mstatus.
+    andi    t1, a0, MSTATUS_MIE                         ; Isolate MIE in the new posture
+    beqz    t1, _tx_thread_interrupt_disable            ; If 0, disable interrupts
+
+    csrsi   mstatus, MSTATUS_MIE                        ; Enable interrupts (MIE, bit 3)
+    j       _tx_thread_interrupt_control_exit           ; Return to caller
+
+_tx_thread_interrupt_disable:
+
+    csrci   mstatus, MSTATUS_MIE                        ; Disable interrupts (MIE, bit 3)
+
+_tx_thread_interrupt_control_exit:
+
+    /* Return the previous interrupt posture.  */
+
+    mv      a0, t0                                      ; Setup return value
     ret
 /* }  */
     END

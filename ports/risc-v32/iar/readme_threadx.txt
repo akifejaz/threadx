@@ -96,7 +96,7 @@ associated thread control block TX_THREAD.
      0x70                   ra  (x1)
      0x74                   reserved
      0x78                   mepc
-#if __iar_riscv_base_isa == rv32e
+#ifdef __riscv_flen
      0x7C                   ft0
      0x80                   ft1
      0x84                   ft2
@@ -163,8 +163,8 @@ __minterrupt_00000*:
 
     /* Before calling _tx_thread_context_save, we have to allocate an interrupt
        stack frame and save the current value of x1 (ra). */
-#if __iar_riscv_base_isa == rv32e
-    addi    sp, sp, -260                            ; Allocate space for all registers - with floating point enabled
+#ifdef __riscv_flen
+    addi    sp, sp, -272                            ; Allocate space for all registers - with floating point enabled (16-byte aligned)
 #else
     addi    sp, sp, -128                            ; Allocate space for all registers - without floating point enabled
 #endif
@@ -212,8 +212,8 @@ __minterrupt_000007:
 
     /* Before calling _tx_thread_context_save, we have to allocate an interrupt
        stack frame and save the current value of x1 (ra). */
-#if __iar_riscv_base_isa == rv32e
-    addi    sp, sp, -260                            ; Allocate space for all registers - with floating point enabled
+#ifdef __riscv_flen
+    addi    sp, sp, -272                            ; Allocate space for all registers - with floating point enabled (16-byte aligned)
 #else
     addi    sp, sp, -128                            ; Allocate space for all registers - without floating point enabled
 #endif

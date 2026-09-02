@@ -8,7 +8,7 @@
  * SPDX-License-Identifier: MIT
  **************************************************************************/
 
-#include "tx_port.h"
+#include "tx_api.h"
 #include "csr.h"
 #include "hwtimer.h"
 
@@ -22,12 +22,12 @@
  */
 static inline void sbi_set_timer(uint64_t stime_value)
 {
-    register uint64_t a0 asm("a0") = stime_value;
-    register uint64_t a7 asm("a7") = 0;  /* SBI_SET_TIMER */
-    asm volatile("ecall"
-                 : "+r"(a0)
-                 : "r"(a7)
-                 : "memory");
+    register uint64_t a0 __asm__("a0") = stime_value;
+    register uint64_t a7 __asm__("a7") = 0;  /* SBI_SET_TIMER */
+    __asm__ volatile("ecall"
+                     : "+r"(a0)
+                     : "r"(a7)
+                     : "memory");
 }
 
 /*
@@ -37,20 +37,33 @@ static inline void sbi_set_timer(uint64_t stime_value)
 static inline uint64_t read_time(void)
 {
     uint64_t t;
-    asm volatile("rdtime %0" : "=r"(t));
+    __asm__ volatile("rdtime %0" : "=r"(t));
     return t;
 }
 
+/* Last programmed compare value: SBI offers no read-back, so keep it
+   here for the absolute re-arm.  */
+static uint64_t next_compare;
+
 int hwtimer_init(void)
 {
-    uint64_t now = read_time();
-    sbi_set_timer(now + TICKNUM_PER_TIMER);
+    next_compare = read_time() + TICKNUM_PER_TIMER;
+    sbi_set_timer(next_compare);
     return 0;
 }
 
 int hwtimer_handler(void)
 {
-    uint64_t now = read_time();
-    sbi_set_timer(now + TICKNUM_PER_TIMER);
+    /* Absolute re-arm: advance from the previous compare value, so trap
+       latency does not accumulate as tick drift; catch up if the next
+       compare already passed.  */
+    uint64_t now;
+
+    next_compare += TICKNUM_PER_TIMER;
+    now = read_time();
+    if (next_compare <= now)
+        next_compare = now + TICKNUM_PER_TIMER;
+
+    sbi_set_timer(next_compare);
     return 0;
 }

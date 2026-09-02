@@ -20,6 +20,17 @@
 /**************************************************************************/
 
     .section .text
+
+/* Trap frame layout (stack grows down, all totals mod 16 = 0):
+   FP build (double ABI): integer slots 0-31 at i*4 (0-127; slot 31 is pad),
+   f0-f31 as doubles at 128 + i*8 (128-383), fcsr at 384, pad 388-399.
+   SOFT_FLOAT build: integer slots 0-31 at i*4 only.  */
+#if defined(__riscv_float_abi_double)
+    .equ    TX_TRAP_FRAME_SIZE, 400
+#else
+    .equ    TX_TRAP_FRAME_SIZE, 128
+#endif
+
 /**************************************************************************/
 /*                                                                        */
 /*  FUNCTION                                               RELEASE        */
@@ -61,7 +72,7 @@ _tx_thread_context_save:
 
     /* Upon entry to this routine, RA/x1 has been saved on the stack
        and the stack has been already allocated for the entire context:
-       addi sp, sp, -32*4 (or -65*4)
+       addi sp, sp, -TX_TRAP_FRAME_SIZE   (400 with FP, 128 without)
        sw   ra, 28*4(sp)
     */
 
@@ -100,59 +111,34 @@ _tx_thread_context_save:
     /* Save mstatus and skip FP state if FS is Off.  */
     csrr    t0, mstatus
     sw      t0, 29*4(sp)
-#if defined(__riscv_float_abi_single) || defined(__riscv_float_abi_double)
+#if defined(__riscv_float_abi_double)
     srli    t1, t0, 13
     andi    t1, t1, 0x3
     beqz    t1, _tx_thread_skip_fpu_save
-#endif
 
-    /* Save floating point registers.  */
-#if defined(__riscv_float_abi_single)
-    fsw     f0,  31*4(sp)                        // Store ft0
-    fsw     f1,  32*4(sp)                        // Store ft1
-    fsw     f2,  33*4(sp)                        // Store ft2
-    fsw     f3,  34*4(sp)                        // Store ft3
-    fsw     f4,  35*4(sp)                        // Store ft4
-    fsw     f5,  36*4(sp)                        // Store ft5
-    fsw     f6,  37*4(sp)                        // Store ft6
-    fsw     f7,  38*4(sp)                        // Store ft7
-    fsw     f10, 41*4(sp)                        // Store fa0
-    fsw     f11, 42*4(sp)                        // Store fa1
-    fsw     f12, 43*4(sp)                        // Store fa2
-    fsw     f13, 44*4(sp)                        // Store fa3
-    fsw     f14, 45*4(sp)                        // Store fa4
-    fsw     f15, 46*4(sp)                        // Store fa5
-    fsw     f16, 47*4(sp)                        // Store fa6
-    fsw     f17, 48*4(sp)                        // Store fa7
-    fsw     f28, 59*4(sp)                        // Store ft8
-    fsw     f29, 60*4(sp)                        // Store ft9
-    fsw     f30, 61*4(sp)                        // Store ft10
-    fsw     f31, 62*4(sp)                        // Store ft11
+    /* Save floating point registers (doubles at 128 + i*8).  */
+    fsd     f0,  128(sp)                         // Store ft0
+    fsd     f1,  136(sp)                         // Store ft1
+    fsd     f2,  144(sp)                         // Store ft2
+    fsd     f3,  152(sp)                         // Store ft3
+    fsd     f4,  160(sp)                         // Store ft4
+    fsd     f5,  168(sp)                         // Store ft5
+    fsd     f6,  176(sp)                         // Store ft6
+    fsd     f7,  184(sp)                         // Store ft7
+    fsd     f10, 208(sp)                         // Store fa0
+    fsd     f11, 216(sp)                         // Store fa1
+    fsd     f12, 224(sp)                         // Store fa2
+    fsd     f13, 232(sp)                         // Store fa3
+    fsd     f14, 240(sp)                         // Store fa4
+    fsd     f15, 248(sp)                         // Store fa5
+    fsd     f16, 256(sp)                         // Store fa6
+    fsd     f17, 264(sp)                         // Store fa7
+    fsd     f28, 352(sp)                         // Store ft8
+    fsd     f29, 360(sp)                         // Store ft9
+    fsd     f30, 368(sp)                         // Store ft10
+    fsd     f31, 376(sp)                         // Store ft11
     csrr    t0, fcsr
-    sw      t0, 63*4(sp)                         // Store fcsr
-#elif defined(__riscv_float_abi_double)
-    fsd     f0,  31*4(sp)                        // Store ft0
-    fsd     f1,  32*4(sp)                        // Store ft1
-    fsd     f2,  33*4(sp)                        // Store ft2
-    fsd     f3,  34*4(sp)                        // Store ft3
-    fsd     f4,  35*4(sp)                        // Store ft4
-    fsd     f5,  36*4(sp)                        // Store ft5
-    fsd     f6,  37*4(sp)                        // Store ft6
-    fsd     f7,  38*4(sp)                        // Store ft7
-    fsd     f10, 41*4(sp)                        // Store fa0
-    fsd     f11, 42*4(sp)                        // Store fa1
-    fsd     f12, 43*4(sp)                        // Store fa2
-    fsd     f13, 44*4(sp)                        // Store fa3
-    fsd     f14, 45*4(sp)                        // Store fa4
-    fsd     f15, 46*4(sp)                        // Store fa5
-    fsd     f16, 47*4(sp)                        // Store fa6
-    fsd     f17, 48*4(sp)                        // Store fa7
-    fsd     f28, 59*4(sp)                        // Store ft8
-    fsd     f29, 60*4(sp)                        // Store ft9
-    fsd     f30, 61*4(sp)                        // Store ft10
-    fsd     f31, 62*4(sp)                        // Store ft11
-    csrr    t0, fcsr
-    sw      t0, 63*4(sp)                         // Store fcsr
+    sw      t0, 384(sp)                          // Store fcsr
 #endif
 _tx_thread_skip_fpu_save:
 
@@ -200,59 +186,34 @@ _tx_thread_nested_save:
     /* Save mstatus and skip FP state if FS is Off.  */
     csrr    t0, mstatus
     sw      t0, 29*4(sp)
-#if defined(__riscv_float_abi_single) || defined(__riscv_float_abi_double)
+#if defined(__riscv_float_abi_double)
     srli    t1, t0, 13
     andi    t1, t1, 0x3
     beqz    t1, _tx_thread_skip_nested_fpu_save
-#endif
 
-    /* Save floating point registers.  */
-#if defined(__riscv_float_abi_single)
-    fsw     f0,  31*4(sp)                        // Store ft0
-    fsw     f1,  32*4(sp)                        // Store ft1
-    fsw     f2,  33*4(sp)                        // Store ft2
-    fsw     f3,  34*4(sp)                        // Store ft3
-    fsw     f4,  35*4(sp)                        // Store ft4
-    fsw     f5,  36*4(sp)                        // Store ft5
-    fsw     f6,  37*4(sp)                        // Store ft6
-    fsw     f7,  38*4(sp)                        // Store ft7
-    fsw     f10, 41*4(sp)                        // Store fa0
-    fsw     f11, 42*4(sp)                        // Store fa1
-    fsw     f12, 43*4(sp)                        // Store fa2
-    fsw     f13, 44*4(sp)                        // Store fa3
-    fsw     f14, 45*4(sp)                        // Store fa4
-    fsw     f15, 46*4(sp)                        // Store fa5
-    fsw     f16, 47*4(sp)                        // Store fa6
-    fsw     f17, 48*4(sp)                        // Store fa7
-    fsw     f28, 59*4(sp)                        // Store ft8
-    fsw     f29, 60*4(sp)                        // Store ft9
-    fsw     f30, 61*4(sp)                        // Store ft10
-    fsw     f31, 62*4(sp)                        // Store ft11
+    /* Save floating point registers (doubles at 128 + i*8).  */
+    fsd     f0,  128(sp)                         // Store ft0
+    fsd     f1,  136(sp)                         // Store ft1
+    fsd     f2,  144(sp)                         // Store ft2
+    fsd     f3,  152(sp)                         // Store ft3
+    fsd     f4,  160(sp)                         // Store ft4
+    fsd     f5,  168(sp)                         // Store ft5
+    fsd     f6,  176(sp)                         // Store ft6
+    fsd     f7,  184(sp)                         // Store ft7
+    fsd     f10, 208(sp)                         // Store fa0
+    fsd     f11, 216(sp)                         // Store fa1
+    fsd     f12, 224(sp)                         // Store fa2
+    fsd     f13, 232(sp)                         // Store fa3
+    fsd     f14, 240(sp)                         // Store fa4
+    fsd     f15, 248(sp)                         // Store fa5
+    fsd     f16, 256(sp)                         // Store fa6
+    fsd     f17, 264(sp)                         // Store fa7
+    fsd     f28, 352(sp)                         // Store ft8
+    fsd     f29, 360(sp)                         // Store ft9
+    fsd     f30, 368(sp)                         // Store ft10
+    fsd     f31, 376(sp)                         // Store ft11
     csrr    t0, fcsr
-    sw      t0, 63*4(sp)                         // Store fcsr
-#elif defined(__riscv_float_abi_double)
-    fsd     f0,  31*4(sp)                        // Store ft0
-    fsd     f1,  32*4(sp)                        // Store ft1
-    fsd     f2,  33*4(sp)                        // Store ft2
-    fsd     f3,  34*4(sp)                        // Store ft3
-    fsd     f4,  35*4(sp)                        // Store ft4
-    fsd     f5,  36*4(sp)                        // Store ft5
-    fsd     f6,  37*4(sp)                        // Store ft6
-    fsd     f7,  38*4(sp)                        // Store ft7
-    fsd     f10, 41*4(sp)                        // Store fa0
-    fsd     f11, 42*4(sp)                        // Store fa1
-    fsd     f12, 43*4(sp)                        // Store fa2
-    fsd     f13, 44*4(sp)                        // Store fa3
-    fsd     f14, 45*4(sp)                        // Store fa4
-    fsd     f15, 46*4(sp)                        // Store fa5
-    fsd     f16, 47*4(sp)                        // Store fa6
-    fsd     f17, 48*4(sp)                        // Store fa7
-    fsd     f28, 59*4(sp)                        // Store ft8
-    fsd     f29, 60*4(sp)                        // Store ft9
-    fsd     f30, 61*4(sp)                        // Store ft10
-    fsd     f31, 62*4(sp)                        // Store ft11
-    csrr    t0, fcsr
-    sw      t0, 63*4(sp)                         // Store fcsr
+    sw      t0, 384(sp)                          // Store fcsr
 #endif
 _tx_thread_skip_nested_fpu_save:
 
@@ -277,9 +238,5 @@ _tx_thread_idle_system_save:
 
     /* }
 }  */
-#if defined(__riscv_float_abi_single) || defined(__riscv_float_abi_double)
-    addi    sp, sp, 65*4                               // Recover stack frame - with floating point enabled
-#else
-    addi    sp, sp, 32*4                               // Recover the reserved stack space
-#endif
+    addi    sp, sp, TX_TRAP_FRAME_SIZE                 // Recover the reserved stack space
     ret                                                // Return to calling ISR

@@ -26,7 +26,7 @@
 /*  PORT SPECIFIC C INFORMATION                            RELEASE        */
 /*                                                                        */
 /*    tx_port.h                                          RISC-V64/GNU     */
-/*                                                           6.2.1        */
+/*                                                       6.5.1.202602a    */
 /*                                                                        */
 /*  AUTHOR                                                                */
 /*                                                                        */
@@ -48,6 +48,34 @@
 #ifndef TX_PORT_H
 #define TX_PORT_H
 
+#ifdef __riscv_float_abi_quad
+#error "The ThreadX RISC-V64 port does not support the LP64Q ABI."
+#endif
+
+#if defined(__riscv_flen) && !defined(__riscv_float_abi_single) && !defined(__riscv_float_abi_double)
+#error "The ThreadX RISC-V64 port does not preserve FP state for a soft-float ABI. Remove F and D ISA extensions or use LP64F or LP64D."
+#endif
+
+#if defined(__riscv_float_abi_single) && (!defined(__riscv_flen) || (__riscv_flen < 32))
+#error "The ThreadX RISC-V64 LP64F port requires FLEN>=32."
+#endif
+
+#if defined(__riscv_float_abi_double) && (!defined(__riscv_flen) || (__riscv_flen < 64))
+#error "The ThreadX RISC-V64 LP64D port requires FLEN>=64."
+#endif
+
+#if defined(__riscv_flen) && (__riscv_flen != 32) && (__riscv_flen != 64)
+#error "The ThreadX RISC-V64 port supports only FLEN=32 or FLEN=64."
+#endif
+
+/* Port contract: gp (x3) and tp (x4) are not part of the thread context;
+   no context save or restore path touches them.  The port assumes one
+   global gp shared by all code, and no TLS (tp is never used).  */
+
+/* Idle power: this RV64 port executes wfi in the scheduler idle loop only
+   when TX_USE_WFI_IDLE is defined (default: busy-spin).  The RV32 port
+   executes wfi unless TX_NO_WFI is defined.  The defaults differ.  */
+
 #ifndef __ASSEMBLER__
 
 /* Include for memset.  */
@@ -61,6 +89,11 @@
 
 /* Yes, include the user defines in tx_user.h. The defines in this file may
    alternately be defined on the command line.  */
+
+/* NOTE: this include is inside #ifndef __ASSEMBLER__ and no port .S file
+   includes headers, so tx_user.h is invisible to assembly.  A define that
+   affects the frame or CSR contract (for example TX_RISCV_SMODE) must
+   come from the build flags, not from tx_user.h.  */
 
 #include "tx_user.h"
 #endif /* TX_INCLUDE_USER_DEFINE_FILE */
@@ -125,6 +158,9 @@ typedef unsigned long long                     ALIGN_TYPE;
 
 #ifndef TX_MINIMUM_STACK
 #if defined(__riscv_vector)
+/* The 16448-byte vector pad is 32*512 + 64: one vector save area
+   (32*VLENB + 32 bytes) fits only for VLEN <= 4096 bits (VLENB <= 512).
+   Hardware with a larger VLEN needs a larger constant.  */
 #define TX_MINIMUM_STACK                        (1024 + 16448)        /* Minimum stack size for this port  */
 #else
 #define TX_MINIMUM_STACK                        1024                  /* Minimum stack size for this port  */
@@ -137,6 +173,8 @@ typedef unsigned long long                     ALIGN_TYPE;
 
 #ifndef TX_TIMER_THREAD_STACK_SIZE
 #if defined(__riscv_vector)
+/* Same bound as TX_MINIMUM_STACK: the 16448-byte pad assumes
+   VLEN <= 4096 bits.  */
 #define TX_TIMER_THREAD_STACK_SIZE              (1024 + 16448)        /* Default timer thread stack size  */
 #else
 #define TX_TIMER_THREAD_STACK_SIZE              1024                  /* Default timer thread stack size  */

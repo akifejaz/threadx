@@ -21,6 +21,22 @@
 
 
     .section .text
+
+/* Frame layouts (stack grows down, all totals mod 16 = 0):
+   Trap frame, FP build: integer slots 0-31 at i*4 (0-127; slot 31 is pad),
+   f0-f31 as doubles at 128 + i*8 (128-383), fcsr at 384, pad to 400.
+   Trap frame, SOFT_FLOAT: integer slots 0-31 at i*4 (128 total).
+   Solicited frame, FP build: slots 0-14 at i*4 (type, s11-s1, s0, ra,
+   mstatus), fs0-fs11 as doubles at 64 + i*8 (64-159), fcsr at 160,
+   pad to 176.  Solicited, SOFT_FLOAT: slots 0-14, top-padded to 128.  */
+#if defined(__riscv_float_abi_double)
+    .equ    TX_TRAP_FRAME_SIZE, 400
+    .equ    TX_SOL_FRAME_SIZE, 176
+#else
+    .equ    TX_TRAP_FRAME_SIZE, 128
+    .equ    TX_SOL_FRAME_SIZE, 128
+#endif
+
 /**************************************************************************/
 /*                                                                        */
 /*  FUNCTION                                               RELEASE        */
@@ -134,82 +150,45 @@ _tx_thread_ready_to_run:
     beqz    t0, _tx_thread_solicited_return             // If 0, solicited return
 
     /* Recover floating point registers only if saved mstatus.FS was not Off.  */
-#if defined(__riscv_float_abi_single) || defined(__riscv_float_abi_double)
+#if defined(__riscv_float_abi_double)
     lw      t1, 29*4(sp)                                // Pickup saved mstatus
     srli    t1, t1, 13
     andi    t1, t1, 0x3
     beqz    t1, _tx_thread_schedule_skip_fp_restore     // Skip if FS was Off
-#if defined(__riscv_float_abi_single)
-    flw     f0,  31*4(sp)                               // Recover ft0
-    flw     f1,  32*4(sp)                               // Recover ft1
-    flw     f2,  33*4(sp)                               // Recover ft2
-    flw     f3,  34*4(sp)                               // Recover ft3
-    flw     f4,  35*4(sp)                               // Recover ft4
-    flw     f5,  36*4(sp)                               // Recover ft5
-    flw     f6,  37*4(sp)                               // Recover ft6
-    flw     f7,  38*4(sp)                               // Recover ft7
-    flw     f8,  39*4(sp)                               // Recover fs0
-    flw     f9,  40*4(sp)                               // Recover fs1
-    flw     f10, 41*4(sp)                               // Recover fa0
-    flw     f11, 42*4(sp)                               // Recover fa1
-    flw     f12, 43*4(sp)                               // Recover fa2
-    flw     f13, 44*4(sp)                               // Recover fa3
-    flw     f14, 45*4(sp)                               // Recover fa4
-    flw     f15, 46*4(sp)                               // Recover fa5
-    flw     f16, 47*4(sp)                               // Recover fa6
-    flw     f17, 48*4(sp)                               // Recover fa7
-    flw     f18, 49*4(sp)                               // Recover fs2
-    flw     f19, 50*4(sp)                               // Recover fs3
-    flw     f20, 51*4(sp)                               // Recover fs4
-    flw     f21, 52*4(sp)                               // Recover fs5
-    flw     f22, 53*4(sp)                               // Recover fs6
-    flw     f23, 54*4(sp)                               // Recover fs7
-    flw     f24, 55*4(sp)                               // Recover fs8
-    flw     f25, 56*4(sp)                               // Recover fs9
-    flw     f26, 57*4(sp)                               // Recover fs10
-    flw     f27, 58*4(sp)                               // Recover fs11
-    flw     f28, 59*4(sp)                               // Recover ft8
-    flw     f29, 60*4(sp)                               // Recover ft9
-    flw     f30, 61*4(sp)                               // Recover ft10
-    flw     f31, 62*4(sp)                               // Recover ft11
-    lw      t0,  63*4(sp)                               // Recover fcsr
+    fld     f0,  128(sp)                                // Recover ft0
+    fld     f1,  136(sp)                                // Recover ft1
+    fld     f2,  144(sp)                                // Recover ft2
+    fld     f3,  152(sp)                                // Recover ft3
+    fld     f4,  160(sp)                                // Recover ft4
+    fld     f5,  168(sp)                                // Recover ft5
+    fld     f6,  176(sp)                                // Recover ft6
+    fld     f7,  184(sp)                                // Recover ft7
+    fld     f8,  192(sp)                                // Recover fs0
+    fld     f9,  200(sp)                                // Recover fs1
+    fld     f10, 208(sp)                                // Recover fa0
+    fld     f11, 216(sp)                                // Recover fa1
+    fld     f12, 224(sp)                                // Recover fa2
+    fld     f13, 232(sp)                                // Recover fa3
+    fld     f14, 240(sp)                                // Recover fa4
+    fld     f15, 248(sp)                                // Recover fa5
+    fld     f16, 256(sp)                                // Recover fa6
+    fld     f17, 264(sp)                                // Recover fa7
+    fld     f18, 272(sp)                                // Recover fs2
+    fld     f19, 280(sp)                                // Recover fs3
+    fld     f20, 288(sp)                                // Recover fs4
+    fld     f21, 296(sp)                                // Recover fs5
+    fld     f22, 304(sp)                                // Recover fs6
+    fld     f23, 312(sp)                                // Recover fs7
+    fld     f24, 320(sp)                                // Recover fs8
+    fld     f25, 328(sp)                                // Recover fs9
+    fld     f26, 336(sp)                                // Recover fs10
+    fld     f27, 344(sp)                                // Recover fs11
+    fld     f28, 352(sp)                                // Recover ft8
+    fld     f29, 360(sp)                                // Recover ft9
+    fld     f30, 368(sp)                                // Recover ft10
+    fld     f31, 376(sp)                                // Recover ft11
+    lw      t0,  384(sp)                                // Recover fcsr
     csrw    fcsr, t0                                    // Restore fcsr
-#elif defined(__riscv_float_abi_double)
-    fld     f0,  31*4(sp)                               // Recover ft0
-    fld     f1,  32*4(sp)                               // Recover ft1
-    fld     f2,  33*4(sp)                               // Recover ft2
-    fld     f3,  34*4(sp)                               // Recover ft3
-    fld     f4,  35*4(sp)                               // Recover ft4
-    fld     f5,  36*4(sp)                               // Recover ft5
-    fld     f6,  37*4(sp)                               // Recover ft6
-    fld     f7,  38*4(sp)                               // Recover ft7
-    fld     f8,  39*4(sp)                               // Recover fs0
-    fld     f9,  40*4(sp)                               // Recover fs1
-    fld     f10, 41*4(sp)                               // Recover fa0
-    fld     f11, 42*4(sp)                               // Recover fa1
-    fld     f12, 43*4(sp)                               // Recover fa2
-    fld     f13, 44*4(sp)                               // Recover fa3
-    fld     f14, 45*4(sp)                               // Recover fa4
-    fld     f15, 46*4(sp)                               // Recover fa5
-    fld     f16, 47*4(sp)                               // Recover fa6
-    fld     f17, 48*4(sp)                               // Recover fa7
-    fld     f18, 49*4(sp)                               // Recover fs2
-    fld     f19, 50*4(sp)                               // Recover fs3
-    fld     f20, 51*4(sp)                               // Recover fs4
-    fld     f21, 52*4(sp)                               // Recover fs5
-    fld     f22, 53*4(sp)                               // Recover fs6
-    fld     f23, 54*4(sp)                               // Recover fs7
-    fld     f24, 55*4(sp)                               // Recover fs8
-    fld     f25, 56*4(sp)                               // Recover fs9
-    fld     f26, 57*4(sp)                               // Recover fs10
-    fld     f27, 58*4(sp)                               // Recover fs11
-    fld     f28, 59*4(sp)                               // Recover ft8
-    fld     f29, 60*4(sp)                               // Recover ft9
-    fld     f30, 61*4(sp)                               // Recover ft10
-    fld     f31, 62*4(sp)                               // Recover ft11
-    lw      t0,  63*4(sp)                               // Recover fcsr
-    csrw    fcsr, t0                                    // Restore fcsr
-#endif
 _tx_thread_schedule_skip_fp_restore:
 #endif
 
@@ -218,7 +197,7 @@ _tx_thread_schedule_skip_fp_restore:
     csrw    mepc, t0                                    // Setup mepc
 
     li      t0, 0x1880                                  // Prepare mstatus: MPP=Machine(0x1800) | MPIE(0x80)
-#if defined(__riscv_float_abi_single) || defined(__riscv_float_abi_double)
+#if defined(__riscv_float_abi_double)
     li      t1, 0x2000                                  // Set FS bits for FP state
     or      t0, t0, t1
 #endif
@@ -253,52 +232,31 @@ _tx_thread_schedule_skip_fp_restore:
     lw      x26,  2*4(sp)                               // Recover s10
     lw      x27,  1*4(sp)                               // Recover s11
 
-#if defined(__riscv_float_abi_single) || defined(__riscv_float_abi_double)
-    addi    sp, sp, 65*4                                // Recover stack frame - with floating point enabled
-#else
-    addi    sp, sp, 32*4                                // Recover stack frame - without floating point enabled
-#endif
+    addi    sp, sp, TX_TRAP_FRAME_SIZE                  // Recover stack frame
     mret                                                // Return to thread
 
 _tx_thread_solicited_return:
 
     /* Recover floating point registers only if saved mstatus.FS was not Off.  */
-#if defined(__riscv_float_abi_single) || defined(__riscv_float_abi_double)
+#if defined(__riscv_float_abi_double)
     lw      t1, 14*4(sp)                                // Pickup saved mstatus
     srli    t1, t1, 13
     andi    t1, t1, 0x3
     beqz    t1, _tx_thread_schedule_solicited_skip_fp_restore   // Skip if FS was Off
-#if defined(__riscv_float_abi_single)
-    flw     f8,  15*4(sp)                               // Recover fs0
-    flw     f9,  16*4(sp)                               // Recover fs1
-    flw     f18, 17*4(sp)                               // Recover fs2
-    flw     f19, 18*4(sp)                               // Recover fs3
-    flw     f20, 19*4(sp)                               // Recover fs4
-    flw     f21, 20*4(sp)                               // Recover fs5
-    flw     f22, 21*4(sp)                               // Recover fs6
-    flw     f23, 22*4(sp)                               // Recover fs7
-    flw     f24, 23*4(sp)                               // Recover fs8
-    flw     f25, 24*4(sp)                               // Recover fs9
-    flw     f26, 25*4(sp)                               // Recover fs10
-    flw     f27, 26*4(sp)                               // Recover fs11
-    lw      t0,  27*4(sp)                               // Recover fcsr
+    fld     f8,  64(sp)                                 // Recover fs0
+    fld     f9,  72(sp)                                 // Recover fs1
+    fld     f18, 80(sp)                                 // Recover fs2
+    fld     f19, 88(sp)                                 // Recover fs3
+    fld     f20, 96(sp)                                 // Recover fs4
+    fld     f21, 104(sp)                                // Recover fs5
+    fld     f22, 112(sp)                                // Recover fs6
+    fld     f23, 120(sp)                                // Recover fs7
+    fld     f24, 128(sp)                                // Recover fs8
+    fld     f25, 136(sp)                                // Recover fs9
+    fld     f26, 144(sp)                                // Recover fs10
+    fld     f27, 152(sp)                                // Recover fs11
+    lw      t0,  160(sp)                                // Recover fcsr
     csrw    fcsr, t0                                    // Restore fcsr
-#elif defined(__riscv_float_abi_double)
-    fld     f8,  15*4(sp)                               // Recover fs0
-    fld     f9,  16*4(sp)                               // Recover fs1
-    fld     f18, 17*4(sp)                               // Recover fs2
-    fld     f19, 18*4(sp)                               // Recover fs3
-    fld     f20, 19*4(sp)                               // Recover fs4
-    fld     f21, 20*4(sp)                               // Recover fs5
-    fld     f22, 21*4(sp)                               // Recover fs6
-    fld     f23, 22*4(sp)                               // Recover fs7
-    fld     f24, 23*4(sp)                               // Recover fs8
-    fld     f25, 24*4(sp)                               // Recover fs9
-    fld     f26, 25*4(sp)                               // Recover fs10
-    fld     f27, 26*4(sp)                               // Recover fs11
-    lw      t0,  27*4(sp)                               // Recover fcsr
-    csrw    fcsr, t0                                    // Restore fcsr
-#endif
 _tx_thread_schedule_solicited_skip_fp_restore:
 #endif
 
@@ -320,11 +278,7 @@ _tx_thread_schedule_solicited_skip_fp_restore:
     lw      x26,  2*4(sp)                               // Recover s10
     lw      x27,  1*4(sp)                               // Recover s11
 
-#if defined(__riscv_float_abi_single) || defined(__riscv_float_abi_double)
-    addi    sp, sp, 29*4                                // Recover stack frame - with floating point enabled
-#else
-    addi    sp, sp, 16*4                                // Recover stack frame - without floating point enabled
-#endif
+    addi    sp, sp, TX_SOL_FRAME_SIZE                   // Recover stack frame
     ret                                                 // Return to thread
 
 /* }  */

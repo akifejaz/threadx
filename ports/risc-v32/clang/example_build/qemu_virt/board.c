@@ -14,17 +14,18 @@
 #include <stdint.h>
 #include <stddef.h>
 
-void *memset(void *des, int c,size_t n)
+void *memset(void *des, int c, size_t n)
 {
-    if((des == NULL) || n <=0)
-            return (void*)des;
-    char* t = (char*)des;
-    int i;
-    for(i=0;i<n;i++)
-        t[i]=c;
+    char *t = (char *)des;
+
+    if ((des == NULL) || (n == 0))
+        return des;
+
+    for (size_t i = 0; i < n; i++)
+        t[i] = c;
+
     return t;
 }
-
 
 int board_init(void)
 {

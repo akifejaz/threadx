@@ -105,7 +105,7 @@ _tx_thread_context_restore:
     /* Just recover the saved registers and return to the point of
        interrupt.  */
 
-#if __iar_riscv_base_isa == rv32e
+#ifdef __riscv_flen
 
     /* Recover floating point registers.  */
 
@@ -142,8 +142,8 @@ _tx_thread_context_restore:
 
     lw      t0, 0x78(sp)                                ; Recover mepc
     csrw    mepc, t0                                    ; Setup mepc
-    li      t0, 0x1880                                  ; Prepare MPIP
-    csrw    mstatus, t0                                 ; Enable MPIP
+    li      t0, 0x1880                                  ; MPP = M, MPIE = 1
+    csrs    mstatus, t0                                 ; Set MPP and MPIE, preserve FS and the other fields
 
     lw      x1, 0x70(sp)                                ; Recover RA
     lw      x5, 0x4C(sp)                                ; Recover t0
@@ -163,8 +163,8 @@ _tx_thread_context_restore:
     lw      x30, 0x38(sp)                               ; Recover t5
     lw      x31, 0x34(sp)                               ; Recover t6
 
-#if __iar_riscv_base_isa == rv32e
-    addi    sp, sp, 260                                 ; Recover stack frame - with floating point enabled
+#ifdef __riscv_flen
+    addi    sp, sp, 272                                 ; FP frame: 272 = 256 used + 16 pad (16-byte psABI align)
 #else
     addi    sp, sp, 128                                 ; Recover stack frame - without floating point enabled
 #endif
@@ -195,7 +195,7 @@ _tx_thread_no_preempt_restore:
 
     lw      sp, 8(t1)                                   ; Switch back to thread's stack
 
-#if __iar_riscv_base_isa == rv32e
+#ifdef __riscv_flen
 
     /* Recover floating point registers.  */
 
@@ -231,8 +231,8 @@ _tx_thread_no_preempt_restore:
 
     lw      t0, 0x78(sp)                                ; Recover mepc
     csrw    mepc, t0                                    ; Setup mepc
-    li      t0, 0x1880                                  ; Prepare MPIP
-    csrw    mstatus, t0                                 ; Enable MPIP
+    li      t0, 0x1880                                  ; MPP = M, MPIE = 1
+    csrs    mstatus, t0                                 ; Set MPP and MPIE, preserve FS and the other fields
 
     lw      x1, 0x70(sp)                                ; Recover RA
     lw      x5, 0x4C(sp)                                ; Recover t0
@@ -252,8 +252,8 @@ _tx_thread_no_preempt_restore:
     lw      x30, 0x38(sp)                               ; Recover t5
     lw      x31, 0x34(sp)                               ; Recover t6
 
-#if __iar_riscv_base_isa == rv32e
-    addi    sp, sp, 260                                 ; Recover stack frame - with floating point enabled
+#ifdef __riscv_flen
+    addi    sp, sp, 272                                 ; FP frame: 272 = 256 used + 16 pad (16-byte psABI align)
 #else
     addi    sp, sp, 128                                 ; Recover stack frame - without floating point enabled
 #endif
@@ -270,7 +270,7 @@ _tx_thread_preempt_restore:
     ori     t3, x0, 1                                   ; Build interrupt stack type
     sw      t3, 0(t0)                                   ; Store stack type
 
-#if __iar_riscv_base_isa == rv32e
+#ifdef __riscv_flen
 
     /* Store floating point preserved registers.  */
 

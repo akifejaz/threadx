@@ -55,13 +55,13 @@ static inline uint64_t riscv_get_core(void)
 static inline uint64_t riscv_read_sstatus(void)
 {
     uint64_t x;
-    asm volatile("csrr %0, sstatus" : "=r" (x));
+    __asm__ volatile("csrr %0, sstatus" : "=r" (x));
     return x;
 }
 
 static inline void riscv_write_sstatus(uint64_t x)
 {
-    asm volatile("csrw sstatus, %0" : : "r" (x));
+    __asm__ volatile("csrw sstatus, %0" : : "r" (x));
 }
 
 

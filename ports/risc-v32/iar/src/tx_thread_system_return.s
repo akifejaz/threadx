@@ -81,13 +81,13 @@ _tx_thread_system_return:
 
     /* Save minimal context on the stack.  */
 
-#if __iar_riscv_base_isa == rv32e
-    addi    sp, sp, -116                                ; Allocate space on the stack - with floating point enabled
+#ifdef __riscv_flen
+    addi    sp, sp, -128                                ; FP frame: 128 = 112 used + 16 pad (16-byte psABI align)
 #else
     addi    sp, sp, -64                                 ; Allocate space on the stack - without floating point enabled
 #endif
 
-#if __iar_riscv_base_isa == rv32e
+#ifdef __riscv_flen
 
     /* Store floating point preserved registers.  */
 
@@ -128,7 +128,7 @@ _tx_thread_system_return:
 
    /* Lockout interrupts. - will be enabled in _tx_thread_schedule  */
 
-    csrci   mstatus, 0xF
+    csrci   mstatus, 0x8                                ; Clear MIE only (bit 3), leave SIE and the reserved bits alone
 
 #ifdef TX_ENABLE_EXECUTION_CHANGE_NOTIFY
 

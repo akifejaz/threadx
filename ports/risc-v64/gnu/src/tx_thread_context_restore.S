@@ -58,6 +58,7 @@
 /**************************************************************************/
 /* VOID   _tx_thread_context_restore(VOID)
 {  */
+    .equ    TX_TRAP_FRAME_SIZE, 528                     // FP trap frame: 65*8 = 520 data + 8 pad bytes at top (16-byte aligned)
     .global  _tx_thread_context_restore
 _tx_thread_context_restore:
 
@@ -89,7 +90,7 @@ _tx_thread_context_restore:
        interrupt.  */
 
     /* Recover floating point registers.  */
-#if defined(__riscv_float_abi_single)
+#if (__riscv_flen == 32)
     flw     f0, 31*8(sp)                                // Recover ft0
     flw     f1, 32*8(sp)                                // Recover ft1
     flw     f2, 33*8(sp)                                // Recover ft2
@@ -112,7 +113,7 @@ _tx_thread_context_restore:
     flw     f31,62*8(sp)                                // Recover ft11
     ld      t0, 63*8(sp)                                // Recover fcsr
     csrw    fcsr, t0                                    // Restore fcsr
-#elif defined(__riscv_float_abi_double)
+#elif (__riscv_flen == 64)
     fld     f0, 31*8(sp)                                // Recover ft0
     fld     f1, 32*8(sp)                                // Recover ft1
     fld     f2, 33*8(sp)                                // Recover ft2
@@ -121,6 +122,20 @@ _tx_thread_context_restore:
     fld     f5, 36*8(sp)                                // Recover ft5
     fld     f6, 37*8(sp)                                // Recover ft6
     fld     f7, 38*8(sp)                                // Recover ft7
+#if defined(__riscv_float_abi_single)
+    fld     f8,  39*8(sp)                               // Recover fs0
+    fld     f9,  40*8(sp)                               // Recover fs1
+    fld     f18, 49*8(sp)                               // Recover fs2
+    fld     f19, 50*8(sp)                               // Recover fs3
+    fld     f20, 51*8(sp)                               // Recover fs4
+    fld     f21, 52*8(sp)                               // Recover fs5
+    fld     f22, 53*8(sp)                               // Recover fs6
+    fld     f23, 54*8(sp)                               // Recover fs7
+    fld     f24, 55*8(sp)                               // Recover fs8
+    fld     f25, 56*8(sp)                               // Recover fs9
+    fld     f26, 57*8(sp)                               // Recover fs10
+    fld     f27, 58*8(sp)                               // Recover fs11
+#endif
     fld     f10,41*8(sp)                                // Recover fa0
     fld     f11,42*8(sp)                                // Recover fa1
     fld     f12,43*8(sp)                                // Recover fa2
@@ -189,6 +204,10 @@ _tx_thread_context_restore:
     li      t0, 0x6000                                  // Set FS=Dirty (bits 14:13) for FP state
     or      t1, t1, t0
 #endif
+#if defined(__riscv_vector)
+    li      t0, 0x0600                                  // Set VS bits (bits 10:9 to 11, Dirty) for restored vector state
+    or      t1, t1, t0
+#endif
     csrw    sstatus, t1                                 // Update sstatus safely
 #else
     csrw    mepc, t0                                    // Setup mepc
@@ -203,11 +222,11 @@ _tx_thread_context_restore:
     andi    t1, t1, ~0x8                                // Clear MIE, Hardware will restore it from MPIE
 
 #if defined(__riscv_float_abi_single) || defined(__riscv_float_abi_double)
-    li      t0, 0x2000                                  // Set FS bits (bits 14:13 to 01) for FP state
+    li      t0, 0x6000                                  // Set FS=Dirty (bits 14:13) — one FS write-back value on every restore path
     or      t1, t1, t0
 #endif
 #if defined(__riscv_vector)
-    li      t0, 0x0200                                  // Set VS bits (bits 10:9 to 01) for vector state
+    li      t0, 0x0600                                  // Set VS bits (bits 10:9 to 11, Dirty) for restored vector state
     or      t1, t1, t0
 #endif
     csrw    mstatus, t1                                 // Update mstatus safely
@@ -232,14 +251,14 @@ _tx_thread_context_restore:
     ld      t6, 13*8(sp)                                // Recover t6
 
 #if defined(__riscv_float_abi_single) || defined(__riscv_float_abi_double)
-    addi    sp, sp, 65*8                                // Recover stack frame - with floating point enabled
+    addi    sp, sp, TX_TRAP_FRAME_SIZE                  // Recover stack frame - with floating point enabled (65*8 data + 8 pad)
 #else
     addi    sp, sp, 32*8                                // Recover stack frame - without floating point enabled
 #endif
 
 #if defined(__riscv_vector)
 #if defined(__riscv_float_abi_single) || defined(__riscv_float_abi_double)
-    addi    t0, sp, -65*8
+    addi    t0, sp, -TX_TRAP_FRAME_SIZE
 #else
     addi    t0, sp, -32*8
 #endif
@@ -270,7 +289,7 @@ _tx_thread_not_nested_restore:
 
     la      t0, _tx_thread_preempt_disable              // Pickup preempt disable flag address
     lw      t2, 0(t0)                                   // Pickup preempt disable flag (UINT)
-    bgtz    t2, _tx_thread_no_preempt_restore           // If set, restore interrupted thread
+    bnez    t2, _tx_thread_no_preempt_restore           // If set (nonzero), restore interrupted thread
 
     la      t0, _tx_thread_execute_ptr                  // Pickup thread execute pointer address
     ld      t2, 0(t0)                                   // Pickup thread execute pointer
@@ -286,7 +305,7 @@ _tx_thread_no_preempt_restore:
     ld      sp, 8(t1)                                  // Switch back to thread's stack
 
     /* Recover floating point registers.  */
-#if defined(__riscv_float_abi_single)
+#if (__riscv_flen == 32)
     flw     f0, 31*8(sp)                                // Recover ft0
     flw     f1, 32*8(sp)                                // Recover ft1
     flw     f2, 33*8(sp)                                // Recover ft2
@@ -309,7 +328,7 @@ _tx_thread_no_preempt_restore:
     flw     f31,62*8(sp)                                // Recover ft11
     ld      t0, 63*8(sp)                                // Recover fcsr
     csrw    fcsr, t0                                    // Restore fcsr
-#elif defined(__riscv_float_abi_double)
+#elif (__riscv_flen == 64)
     fld     f0, 31*8(sp)                                // Recover ft0
     fld     f1, 32*8(sp)                                // Recover ft1
     fld     f2, 33*8(sp)                                // Recover ft2
@@ -318,6 +337,20 @@ _tx_thread_no_preempt_restore:
     fld     f5, 36*8(sp)                                // Recover ft5
     fld     f6, 37*8(sp)                                // Recover ft6
     fld     f7, 38*8(sp)                                // Recover ft7
+#if defined(__riscv_float_abi_single)
+    fld     f8,  39*8(sp)                               // Recover fs0
+    fld     f9,  40*8(sp)                               // Recover fs1
+    fld     f18, 49*8(sp)                               // Recover fs2
+    fld     f19, 50*8(sp)                               // Recover fs3
+    fld     f20, 51*8(sp)                               // Recover fs4
+    fld     f21, 52*8(sp)                               // Recover fs5
+    fld     f22, 53*8(sp)                               // Recover fs6
+    fld     f23, 54*8(sp)                               // Recover fs7
+    fld     f24, 55*8(sp)                               // Recover fs8
+    fld     f25, 56*8(sp)                               // Recover fs9
+    fld     f26, 57*8(sp)                               // Recover fs10
+    fld     f27, 58*8(sp)                               // Recover fs11
+#endif
     fld     f10,41*8(sp)                                // Recover fa0
     fld     f11,42*8(sp)                                // Recover fa1
     fld     f12,43*8(sp)                                // Recover fa2
@@ -384,6 +417,10 @@ _tx_thread_no_preempt_restore:
     li      t0, 0x6000                                  // Set FS=Dirty (bits 14:13) for FP state
     or      t1, t1, t0
 #endif
+#if defined(__riscv_vector)
+    li      t0, 0x0600                                  // Set VS bits (bits 10:9 to 11, Dirty) for restored vector state
+    or      t1, t1, t0
+#endif
     csrw    sstatus, t1                                 // Update sstatus safely
 #else
     csrw    mepc, t0                                    // Setup mepc
@@ -399,11 +436,11 @@ _tx_thread_no_preempt_restore:
     andi    t1, t1, ~0x8                                // Clear MIE, Hardware will restore it from MPIE
 
 #if defined(__riscv_float_abi_single) || defined(__riscv_float_abi_double)
-    li      t0, 0x2000                                  // Set FS bits for FP state
+    li      t0, 0x6000                                  // Set FS=Dirty (bits 14:13) — one FS write-back value on every restore path
     or      t1, t1, t0
 #endif
 #if defined(__riscv_vector)
-    li      t0, 0x0200                                  // Set VS bits (bits 10:9 to 01) for vector state
+    li      t0, 0x0600                                  // Set VS bits (bits 10:9 to 11, Dirty) for restored vector state
     or      t1, t1, t0
 #endif
     csrw    mstatus, t1                                 // Update mstatus safely
@@ -428,14 +465,14 @@ _tx_thread_no_preempt_restore:
     ld      t6, 13*8(sp)                                // Recover t6
 
 #if defined(__riscv_float_abi_single) || defined(__riscv_float_abi_double)
-    addi    sp, sp, 65*8                                // Recover stack frame - with floating point enabled
+    addi    sp, sp, TX_TRAP_FRAME_SIZE                  // Recover stack frame - with floating point enabled (65*8 data + 8 pad)
 #else
     addi    sp, sp, 32*8                                // Recover stack frame - without floating point enabled
 #endif
 
 #if defined(__riscv_vector)
 #if defined(__riscv_float_abi_single) || defined(__riscv_float_abi_double)
-    addi    t0, sp, -65*8
+    addi    t0, sp, -TX_TRAP_FRAME_SIZE
 #else
     addi    t0, sp, -32*8
 #endif
@@ -464,8 +501,10 @@ _tx_thread_preempt_restore:
     ori     t3, zero, 1                                 // Build interrupt stack type
     sd      t3, 0(t0)                                   // Store stack type
 
-    /* Store floating point preserved registers.  */
-#ifdef __riscv_float_abi_single
+    /* Store floating point preserved registers. LP64F saved the complete
+       FLEN=64 state before the C interrupt handler ran. */
+#if !defined(__riscv_float_abi_single) || (__riscv_flen != 64)
+#if (__riscv_flen == 32)
     fsw     f8,  39*8(t0)                               // Store fs0
     fsw     f9,  40*8(t0)                               // Store fs1
     fsw     f18, 49*8(t0)                               // Store fs2
@@ -478,7 +517,7 @@ _tx_thread_preempt_restore:
     fsw     f25, 56*8(t0)                               // Store fs9
     fsw     f26, 57*8(t0)                               // Store fs10
     fsw     f27, 58*8(t0)                               // Store fs11
-#elif defined(__riscv_float_abi_double)
+#elif (__riscv_flen == 64)
     fsd     f8,  39*8(t0)                               // Store fs0
     fsd     f9,  40*8(t0)                               // Store fs1
     fsd     f18, 49*8(t0)                               // Store fs2
@@ -492,26 +531,31 @@ _tx_thread_preempt_restore:
     fsd     f26, 57*8(t0)                               // Store fs10
     fsd     f27, 58*8(t0)                               // Store fs11
 #endif
+#endif
 
 #if defined(__riscv_vector)
-    /* Store vector registers and CSRs */
+    /* Store vector registers and CSRs.
+       Use t4 as the vector-area pointer: t1 must keep the TCB pointer for
+       the time-slice store below.  t4 is free here — the interrupted
+       thread's t4 is already in the trap frame and this path ends in the
+       scheduler. */
 #if defined(__riscv_float_abi_single) || defined(__riscv_float_abi_double)
-    addi    t1, t0, 64*8
+    addi    t4, t0, 64*8
 #else
-    addi    t1, t0, 31*8
+    addi    t4, t0, 31*8
 #endif
     /* Store vector CSRs */
     csrr    t2, vstart                                  // Store vstart
-    sd      t2, 0*8(t1)
+    sd      t2, 0*8(t4)
     csrr    t2, vtype                                   // Store vtype
-    sd      t2, 1*8(t1)
+    sd      t2, 1*8(t4)
     csrr    t2, vl                                      // Store vl
-    sd      t2, 2*8(t1)
+    sd      t2, 2*8(t4)
     csrr    t2, vcsr                                    // Store vcsr
-    sd      t2, 3*8(t1)
+    sd      t2, 3*8(t4)
 
     /* Store vector registers v0-v31 */
-    addi    t2, t1, 4*8
+    addi    t2, t4, 4*8
     vsetvli t3, zero, e8, m8, ta, ma
     vse8.v  v0, 0(t2)                                   // Store v0 ~ v7
     add     t2, t2, t3
