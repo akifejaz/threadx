@@ -21,8 +21,6 @@
 #include "uart.h"
 #include "hwtimer.h"
 #include "plic.h"
-#include <tx_port.h>
-#include <tx_api.h>
 
 #define MCAUSE_INT_BIT          ((uintptr_t)1 << (__riscv_xlen - 1))
 
@@ -30,11 +28,15 @@
 #define OS_IS_TICK_INT(mcause)  ((mcause) == (MCAUSE_INT_BIT | 7u))
 #define OS_IS_SOFT_INT(mcause)  ((mcause) == (MCAUSE_INT_BIT | 3u))
 #define OS_IS_EXT_INT(mcause)   ((mcause) == (MCAUSE_INT_BIT | 11u))
-#define OS_IS_TRAP_USER(mcause) ((mcause) == 11u)
 
 extern void _tx_timer_interrupt(void);
 
-#ifdef TX_RISCV_TRAP_DEBUG
+static void print_str(const char *s)
+{
+    while (*s)
+        uart_putc(*s++);
+}
+
 static void print_hex(uintptr_t val)
 {
     const char digits[] = "0123456789ABCDEF";
@@ -45,9 +47,7 @@ static void print_hex(uintptr_t val)
         int d = (val >> (i * 4)) & 0xF;
         uart_putc(digits[d]);
     }
-    uart_putc('\n');
 }
-#endif /* TX_RISCV_TRAP_DEBUG */
 
 void trap_handler(uintptr_t mcause, uintptr_t mepc, uintptr_t mtval)
 {
@@ -75,18 +75,14 @@ void trap_handler(uintptr_t mcause, uintptr_t mepc, uintptr_t mtval)
     }
     else
     {
-        puts("[EXCEPTION] : Unknown Error!!");
-#ifdef TX_RISCV_TRAP_DEBUG
-        puts("mcause:");
+        /* The BSP has no execution service or debugger route for exceptions. */
+        print_str("[EXCEPTION] mcause=");
         print_hex(mcause);
-        puts("mepc:");
+        print_str(" mepc=");
         print_hex(mepc);
-        puts("mtval:");
+        print_str(" mtval=");
         print_hex(mtval);
-#else
-        (void)mepc;
-        (void)mtval;
-#endif /* TX_RISCV_TRAP_DEBUG */
+        uart_putc('\n');
         while (1) ;
     }
 }
