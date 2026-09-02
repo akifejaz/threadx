@@ -58,6 +58,8 @@
 /**************************************************************************/
 /* VOID   _tx_thread_schedule(VOID)
 {  */
+    .equ    TX_TRAP_FRAME_SIZE, 528                     // FP trap frame: 65*8 = 520 data + 8 pad bytes at top (16-byte aligned)
+    .equ    TX_SOL_FRAME_SIZE, 240                      // FP solicited frame: 29*8 = 232 data + 8 pad bytes at top (16-byte aligned)
     .global  _tx_thread_schedule
 _tx_thread_schedule:
 
@@ -142,7 +144,7 @@ _tx_thread_schedule_loop:
 
     /* Determine if floating point registers need to be recovered.  */
 
-#if defined(__riscv_float_abi_single)
+#if (__riscv_flen == 32)
     flw     f0, 31*8(sp)                                // Recover ft0
     flw     f1, 32*8(sp)                                // Recover ft1
     flw     f2, 33*8(sp)                                // Recover ft2
@@ -177,7 +179,7 @@ _tx_thread_schedule_loop:
     flw     f31,62*8(sp)                                // Recover ft11
     ld      t0, 63*8(sp)                                // Recover fcsr
     csrw    fcsr, t0                                    // Restore fcsr
-#elif defined(__riscv_float_abi_double)
+#elif (__riscv_flen == 64)
     fld     f0, 31*8(sp)                                // Recover ft0
     fld     f1, 32*8(sp)                                // Recover ft1
     fld     f2, 33*8(sp)                                // Recover ft2
@@ -259,6 +261,10 @@ _tx_thread_schedule_loop:
     li      t1, 0x6000                                  // Set FS=Dirty (bits 14:13)
     or      t0, t0, t1
 #endif
+#if defined(__riscv_vector)
+    li      t1, 0x0600                                  // Set VS bits (bits 10:9 to 11, Dirty) for restored vector state
+    or      t0, t0, t1
+#endif
     csrw    sstatus, t0                                 // Update sstatus safely
 #else
     csrw    mepc, t0                                    // Store mepc
@@ -274,7 +280,7 @@ _tx_thread_schedule_loop:
     or      t0, t0, t1
 #endif
 #if defined(__riscv_vector)
-    li      t1, 0x0200                                  // Set VS bits (bits 10:9 to 01) for vector state
+    li      t1, 0x0600                                  // Set VS bits (bits 10:9 to 11, Dirty) for restored vector state
     or      t0, t0, t1
 #endif
     csrw    mstatus, t0                                 // Set mstatus
@@ -310,13 +316,13 @@ _tx_thread_schedule_loop:
     ld      t6, 13*8(sp)                                // Recover t6
 
 #if defined(__riscv_float_abi_single) || defined(__riscv_float_abi_double)
-    addi    sp, sp, 65*8                                // Recover stack frame - with floating point registers
+    addi    sp, sp, TX_TRAP_FRAME_SIZE                  // Recover stack frame - with floating point registers (65*8 data + 8 pad)
 #else
     addi    sp, sp, 32*8                                // Recover stack frame - without floating point registers
 #endif
 #if defined(__riscv_vector)
 #if defined(__riscv_float_abi_single) || defined(__riscv_float_abi_double)
-    addi    t0, sp, -65*8
+    addi    t0, sp, -TX_TRAP_FRAME_SIZE
 #else
     addi    t0, sp, -32*8
 #endif
@@ -336,7 +342,7 @@ _tx_thread_schedule_loop:
 
 _tx_thread_synch_return:
 
-#if defined(__riscv_float_abi_single)
+#if (__riscv_flen == 32)
     flw     f8, 15*8(sp)                                // Recover fs0
     flw     f9, 16*8(sp)                                // Recover fs1
     flw     f18,17*8(sp)                                // Recover fs2
@@ -351,7 +357,7 @@ _tx_thread_synch_return:
     flw     f27,26*8(sp)                                // Recover fs11
     ld      t0, 27*8(sp)                                // Recover fcsr
     csrw    fcsr, t0                                    //
-#elif defined(__riscv_float_abi_double)
+#elif (__riscv_flen == 64)
     fld     f8, 15*8(sp)                                // Recover fs0
     fld     f9, 16*8(sp)                                // Recover fs1
     fld     f18,17*8(sp)                                // Recover fs2
@@ -419,7 +425,7 @@ _tx_thread_synch_return:
     csrw    mstatus, t0                                 // Store mstatus, enables interrupt
 #endif
 #if defined(__riscv_float_abi_single) || defined(__riscv_float_abi_double)
-    addi    sp, sp, 29*8                                // Recover stack frame
+    addi    sp, sp, TX_SOL_FRAME_SIZE                   // Recover stack frame (29*8 data + 8 pad)
 #else
     addi    sp, sp, 16*8                                // Recover stack frame
 #endif

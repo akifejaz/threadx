@@ -53,9 +53,20 @@
 
 trap_entry:
 #if defined(__riscv_float_abi_single) || defined(__riscv_float_abi_double)
-    addi    sp, sp, -520                       /* 65 * 8: integer + FP */
+    addi    sp, sp, -528                       /* 65*8 + 8 pad: integer + FP, 16-byte aligned */
 #else
     addi    sp, sp, -256                       /* 32 * 8: integer only */
+#endif
+
+#if defined(__riscv_vector)
+    /* Preserve t4 while the dynamic vector frame is allocated. */
+    sd      t4, 15*8(sp)
+    csrr    t4, vlenb
+    slli    t4, t4, 5
+    addi    t4, t4, 4*8
+    sub     sp, sp, t4
+    add     t4, sp, t4
+    ld      t4, 15*8(t4)
 #endif
 
     sd      x1, 224(sp)                        /* Save RA at offset 28*8 */
@@ -65,11 +76,11 @@ trap_entry:
     csrr    a0, scause
     csrr    a1, sepc
     csrr    a2, stval
-    addi    sp, sp, -8
+    addi    sp, sp, -16                        /* 16 bytes keep sp 16-byte aligned at the call */
     sd      ra, 0(sp)
     call    trap_handler
     ld      ra, 0(sp)
-    addi    sp, sp, 8
+    addi    sp, sp, 16
 
     call    _tx_thread_context_restore
     /* never returns */
@@ -128,11 +139,16 @@ _tx_initialize_low_level:
     fscsr   x0
 #endif
 
-    addi    sp, sp, -8
+#ifdef __riscv_vector
+    li      t0, 0x200                                 /* Set sstatus.VS to Initial */
+    csrrs   zero, sstatus, t0
+#endif
+
+    addi    sp, sp, -16                               /* 16 bytes keep sp 16-byte aligned at the call */
     sd      ra, 0(sp)
     call    board_init
     ld      ra, 0(sp)
-    addi    sp, sp, 8
+    addi    sp, sp, 16
 
     la      t0, trap_entry
     csrw    stvec, t0

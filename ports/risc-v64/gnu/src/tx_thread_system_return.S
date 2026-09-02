@@ -57,6 +57,7 @@
 /**************************************************************************/
 /* VOID   _tx_thread_system_return(VOID)
 {  */
+    .equ    TX_SOL_FRAME_SIZE, 240                      // FP solicited frame: 29*8 = 232 data + 8 pad bytes at top (16-byte aligned)
     .global  _tx_thread_system_return
 _tx_thread_system_return:
 
@@ -64,7 +65,7 @@ _tx_thread_system_return:
     /* sp -= sizeof(stack_frame);  */
 
 #if defined(__riscv_float_abi_single) || defined(__riscv_float_abi_double)
-    addi    sp, sp, -29*8                               // Allocate space on the stack - with floating point enabled
+    addi    sp, sp, -TX_SOL_FRAME_SIZE                  // Allocate space on the stack - with floating point enabled (29*8 data + 8 pad)
 #else
     addi    sp, sp, -16*8                               // Allocate space on the stack - without floating point enabled
 #endif
@@ -76,7 +77,7 @@ _tx_thread_system_return:
 #endif
 
     /* Store floating point preserved registers.  */
-#if defined(__riscv_float_abi_single)
+#if (__riscv_flen == 32)
     fsw     f8,  15*8(sp)                               // Store fs0
     fsw     f9,  16*8(sp)                               // Store fs1
     fsw     f18, 17*8(sp)                               // Store fs2
@@ -91,7 +92,7 @@ _tx_thread_system_return:
     fsw     f27, 26*8(sp)                               // Store fs11
     csrr    t0, fcsr
     sd      t0, 27*8(sp)                                // Store fcsr
-#elif defined(__riscv_float_abi_double)
+#elif (__riscv_flen == 64)
     fsd     f8,  15*8(sp)                               // Store fs0
     fsd     f9,  16*8(sp)                               // Store fs1
     fsd     f18, 17*8(sp)                               // Store fs2

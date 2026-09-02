@@ -32,10 +32,10 @@
  * Timebase frequency (DTS cpus { timebase-frequency = <0x16e3600>; }):
  *   24,000,000 Hz (24 MHz).
  *
- * ThreadX tick rate: 10 Hz (100 ms period).
+ * ThreadX sets the tick rate with TX_TIMER_TICKS_PER_SECOND.
  */
 #define TICKNUM_PER_SECOND      24000000UL
-#define TICKNUM_PER_TIMER       (TICKNUM_PER_SECOND / 10)
+#define TICKNUM_PER_TIMER       (TICKNUM_PER_SECOND / TX_TIMER_TICKS_PER_SECOND)
 
 int hwtimer_init(void);
 int hwtimer_handler(void);

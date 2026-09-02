@@ -13,6 +13,7 @@
     .extern _sysstack_start
     .extern _bss_start
     .extern _bss_end
+    .extern __global_pointer$
 
     .section .text.entry
     .align 4
@@ -49,6 +50,11 @@ _start:
     li x29, 0
     li x30, 0
     li x31, 0
+
+    .option push
+    .option norelax
+    la   gp, __global_pointer$
+    .option pop
 
     /* Set up the initial supervisor stack (16 KiB). */
     la   t0, _sysstack_start
