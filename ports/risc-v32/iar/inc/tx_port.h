@@ -48,6 +48,13 @@
 #ifndef TX_PORT_H
 #define TX_PORT_H
 
+#if (__iar_riscv_base_isa == rv32e)
+#error "The ThreadX RISC-V32 IAR port requires the RV32I register set. RV32E is not supported."
+#endif
+
+#if defined(__riscv_flen) && (__riscv_flen != 32)
+#error "The ThreadX RISC-V32 IAR port preserves only FLEN=32 FP state. Build without the D extension."
+#endif
 
 /* Include prototypes for memset.  */
 
@@ -112,6 +119,11 @@ typedef unsigned short                          USHORT;
 
 
 /* Define various constants for the ThreadX RISC-V port.  */
+
+/* This port needs the RV32I base ISA, which has 32 integer registers x0-x31.
+   The context save and restore code reads and writes x16-x31 unconditionally.
+   RV32E has only 16 integer registers, so this port does not support RV32E.
+   The floating point code is separate. It is under #ifdef __riscv_flen.  */
 
 #define TX_INT_DISABLE                          0x00000000  /* Disable interrupts value */
 #define TX_INT_ENABLE                           0x00000008  /* Enable interrupt value   */
@@ -263,7 +275,6 @@ extern  CHAR                    _tx_version_id[];
 #endif
 
 #endif
-
 
 
 

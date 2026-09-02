@@ -62,7 +62,7 @@ __tx_free_memory_start:
 /**************************************************************************/
 /* VOID   _tx_initialize_low_level(VOID)
 {  */
-    .weak    _tx_initialize_low_level
+    .global  _tx_initialize_low_level
     .weak    _tx_initialize_low_level
 _tx_initialize_low_level:
 
@@ -79,8 +79,10 @@ _tx_initialize_low_level:
     la      t1, _tx_initialize_unused_memory        // Pickup address of unused memory
     sw      t0, 0(t1)                               // Save unused memory address
 
-    /* Initialize floating point control/status register if floating point is enabled.  */
-#ifdef __riscv_flen
+    /* Initialize floating point state if floating point is enabled.  */
+#if defined(__riscv_float_abi_double)
+    li      t0, 0x2000                              // mstatus.FS = Initial (bits 14:13 = 01)
+    csrrs   zero, mstatus, t0                       // Enable the FP unit before touching fcsr
     li      t0, 0
     csrw    fcsr, t0                                // Clear FP control/status register
 #endif
@@ -92,7 +94,7 @@ _tx_initialize_low_level:
    The timer interrupt handler should follow this execution flow:
 
    1. Disable interrupts (if not done by hardware exception entry)
-   2. Allocate interrupt stack frame (65*4 bytes with FP, 32*4 bytes without)
+   2. Allocate interrupt stack frame (400 bytes with FP double, 128 bytes without)
    3. Save RA (x1) on the stack at offset 28*4
    4. Call _tx_thread_context_save to save thread context
    5. Call _tx_timer_interrupt to process the timer tick
@@ -101,7 +103,7 @@ _tx_initialize_low_level:
    Example (for CLINT timer):
 
        _tx_timer_interrupt_handler:
-           addi    sp, sp, -32*4
+           addi    sp, sp, -128        // -400 with FP double
            sw      ra, 28*4(sp)
            call    _tx_thread_context_save
            call    _tx_timer_interrupt

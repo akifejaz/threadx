@@ -60,6 +60,11 @@
 
 uart_instance_t g_uart_0 = { .hw_reg = FPGA_UART_0_BASE };
 
+static void default_tx_handler(uart_instance_t *this_uart);
+static void enable_irq(const uart_instance_t *this_uart);
+static void disable_irq(const uart_instance_t *this_uart);
+static void config_baud_divisors(uart_instance_t *this_uart, uint32_t baudrate);
+
 /*******************************************************************************
  * Global initialization for all modes
  */
@@ -884,10 +889,19 @@ int uart_init(void)
 
 int uart_putc(int ch)
 {
-    UART_polled_tx(gp_my_uart, (const uint8_t *)&ch, 1);
+    uint8_t byte = (uint8_t)ch;
+
+    UART_polled_tx(gp_my_uart, &byte, 1);
+    return 1;
 }
 
-int uart_puts(const char* str)
+int uart_puts(const char *str)
 {
-    UART_polled_tx_string(gp_my_uart, str);
+    int length = 0;
+
+    while (str[length] != '\0')
+        length++;
+
+    UART_polled_tx_string(gp_my_uart, (const uint8_t *)str);
+    return length;
 }

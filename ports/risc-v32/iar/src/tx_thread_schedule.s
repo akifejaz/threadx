@@ -138,7 +138,7 @@ _tx_thread_schedule_loop:
 
     /* Determine if floating point registers need to be recovered.  */
 
-#if __iar_riscv_base_isa == rv32e
+#ifdef __riscv_flen
     flw     f0, 0x7C(sp)                                ; Recover ft0
     flw     f1, 0x80(sp)                                ; Recover ft1
     flw     f2, 0x84(sp)                                ; Recover ft2
@@ -179,8 +179,8 @@ _tx_thread_schedule_loop:
 
     lw      t0, 0x78(sp)                                ; Recover mepc
     csrw    mepc, t0                                    ; Store mepc
-    li      t0, 0x1880                                  ; Prepare MPIP
-    csrw    mstatus, t0                                 ; Enable MPIP
+    li      t0, 0x1880                                  ; MPP = M, MPIE = 1
+    csrs    mstatus, t0                                 ; Set MPP and MPIE, preserve FS and the other fields
 
     lw      x1, 0x70(sp)                                ; Recover RA
     lw      x5, 0x4C(sp)                                ; Recover t0
@@ -211,8 +211,8 @@ _tx_thread_schedule_loop:
     lw      x30, 0x38(sp)                               ; Recover t5
     lw      x31, 0x34(sp)                               ; Recover t6
 
-#if __iar_riscv_base_isa == rv32e
-    addi    sp, sp, 260                                 ; Recover stack frame - with floating point registers
+#ifdef __riscv_flen
+    addi    sp, sp, 272                                 ; FP frame: 272 = 256 used + 16 pad (16-byte psABI align)
 #else
     addi    sp, sp, 128                                 ; Recover stack frame - without floating point registers
 #endif
@@ -220,7 +220,7 @@ _tx_thread_schedule_loop:
 
 _tx_thread_synch_return:
 
-#if __iar_riscv_base_isa == rv32e
+#ifdef __riscv_flen
     flw     f8, 0x3C(sp)                                ; Recover fs0
     flw     f9, 0x40(sp)                                ; Recover fs1
     flw     f18,0x44(sp)                                ; Recover fs2
@@ -255,8 +255,8 @@ _tx_thread_synch_return:
     lw      x27, 0x04(sp)                               ; Recover s11
     lw      t0, 0x38(sp)                                ; Recover mstatus
     csrw    mstatus, t0                                 ; Store mstatus, enables interrupt
-#if __iar_riscv_base_isa == rv32e
-    addi    sp, sp, 116                                 ; Recover stack frame
+#ifdef __riscv_flen
+    addi    sp, sp, 128                                 ; FP frame: 128 = 112 used + 16 pad (16-byte psABI align)
 #else
     addi    sp, sp, 64                                  ; Recover stack frame
 #endif

@@ -31,11 +31,12 @@ tx_trap_entry:
     csrr a0, mcause
     csrr a1, mepc
     csrr a2, mtval
-    addi sp, sp, -4
+    /* 16-byte temporary frame: the ilp32 psABI requires sp = 0 mod 16 at the call. */
+    addi sp, sp, -16
     sw   ra, 0(sp)
     call tx_trap_handler
     lw   ra, 0(sp)
-    addi sp, sp, 4
+    addi sp, sp, 16
     call _tx_thread_context_restore
 1:
     wfi

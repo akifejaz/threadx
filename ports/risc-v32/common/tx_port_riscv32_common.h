@@ -44,6 +44,36 @@
 #endif
 
 
+/* Refuse a build that enables the V extension.  This check is outside every  */
+/* __ASSEMBLER__ wrapper on purpose, so a C build and an assembly build both  */
+/* stop here.  No context save or restore path in this port touches v0-v31,   */
+/* vtype, vl, vstart or vcsr.  */
+
+#ifdef __riscv_vector
+#error "The ThreadX RISC-V32 port does not save or restore vector state. Build without the V extension, or use the RISC-V64 port."
+#endif
+
+#ifdef __riscv_32e
+#error "The ThreadX RISC-V32 port requires the RV32I integer register set. RV32E is not supported."
+#endif
+
+#if defined(__riscv_float_abi_single)
+#error "The ThreadX RISC-V32 port does not support the ILP32F ABI. Use ILP32D or a soft-float ABI without F or D ISA extensions."
+#endif
+
+#ifdef __riscv_float_abi_quad
+#error "The ThreadX RISC-V32 port does not support the ILP32Q ABI."
+#endif
+
+#if defined(__riscv_flen) && !defined(__riscv_float_abi_double)
+#error "The ThreadX RISC-V32 port does not preserve FP state for a soft-float ABI. Remove F and D ISA extensions or use ILP32D."
+#endif
+
+#if defined(__riscv_float_abi_double) && (!defined(__riscv_flen) || (__riscv_flen != 64))
+#error "The ThreadX RISC-V32 ILP32D port requires FLEN=64."
+#endif
+
+
 #ifndef __ASSEMBLER__
 
 /* Include for memset.  */
@@ -57,6 +87,13 @@
 
 /* Yes, include the user defines in tx_user.h. The defines in this file may
    alternately be defined on the command line.  */
+
+/* NOTE: this include is inside #ifndef __ASSEMBLER__.  A port .S file may
+   include tx_port.h, and the clang qemu_virt BSP does, but the assembler
+   pass defines __ASSEMBLER__ and hides this include.  So tx_user.h stays
+   invisible to assembly either way.  A define that affects the frame or
+   CSR contract (for example TX_RISCV_SMODE) must come from the build
+   flags, not from tx_user.h.  */
 
 #include "tx_user.h"
 #endif /* TX_INCLUDE_USER_DEFINE_FILE */

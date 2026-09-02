@@ -138,6 +138,12 @@ If floating point support:
                        f30     (244)   Inital ft10
                        f31     (248)   Inital ft11
                        fscr    (252)   Inital fscr
+                       ----    (256)   Reserved word (0)
+                       ----    (260)   Pad, 12 bytes, unused
+
+    The frame is 272 bytes with floating point support and 128 bytes without.
+    Both sizes are a multiple of 16, which the psABI needs at a call boundary.
+    The pad sits at the top of the frame, so every slot offset above is exact.
 
     Stack Bottom: (higher memory address)  */
 
@@ -147,8 +153,8 @@ If floating point support:
 
     /* Actually build the stack frame.  */
 
-#if __iar_riscv_base_isa == rv32e
-    addi    t0, t0, -260
+#ifdef __riscv_flen
+    addi    t0, t0, -272                                ; FP frame: 272 = 256 used + 16 pad (16-byte psABI align)
 #else
     addi    t0, t0, -128                                ; Allocate space for the stack frame
 #endif
@@ -183,7 +189,7 @@ If floating point support:
     sw      x0, 108(t0)                                 ; Initial a0
     sw      x0, 112(t0)                                 ; Initial ra
     sw      a1, 120(t0)                                 ; Initial mepc
-#if __iar_riscv_base_isa == rv32e
+#ifdef __riscv_flen
     sw      x0, 124(t0)                                 ; Inital ft0
     sw      x0, 128(t0)                                 ; Inital ft1
     sw      x0, 132(t0)                                 ; Inital ft2

@@ -89,6 +89,12 @@ _tx_initialize_low_level:
     la      t0, __tx_free_memory_start              ; Pickup first free address
     sw      t0, _tx_initialize_unused_memory, t1    ; Save unused memory address
 
+#ifdef __riscv_flen
+    li      t0, 0x2000                              ; Set mstatus.FS to Initial
+    csrs    mstatus, t0
+    csrw    fcsr, x0
+#endif
+
     ret
 
 
@@ -104,8 +110,8 @@ __minterrupt_000007:
 
     /* Before calling _tx_thread_context_save, we have to allocate an interrupt
        stack frame and save the current value of x1 (ra). */
-#if __iar_riscv_base_isa == rv32e
-    addi    sp, sp, -260                            ; Allocate space for all registers - with floating point enabled
+#ifdef __riscv_flen
+    addi    sp, sp, -272                            ; FP frame: 272 = 256 used + 16 pad (16-byte psABI align)
 #else
     addi    sp, sp, -128                            ; Allocate space for all registers - without floating point enabled
 #endif

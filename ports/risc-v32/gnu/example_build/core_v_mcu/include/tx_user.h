@@ -17,6 +17,5 @@
 #define TX_USER_H
 
 #define TX_TIMER_TICKS_PER_SECOND 100U
-#define TX_INCLUDE_USER_DEFINE_FILE
 
 #endif /* TX_USER_H */

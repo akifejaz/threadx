@@ -10,13 +10,14 @@
 /***************************************************************************/
 
 
-.section .text
+.section .text.entry
 .align 4
 .global _start
 .extern main
 .extern _sysstack_start
 .extern _bss_start
 .extern _bss_end
+.extern __global_pointer$
 _start:
 	csrr t0, mhartid
 	bne  t0, zero, 1f
@@ -51,6 +52,10 @@ _start:
 	li x29, 0
 	li x30, 0
 	li x31, 0
+	.option push
+	.option norelax
+	la gp, __global_pointer$
+	.option pop
 	la t0, _sysstack_start
 	li t1, 0x1000
 	add sp, t0, t1
